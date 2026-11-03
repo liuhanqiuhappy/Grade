@@ -15,11 +15,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SessionAuthInterceptor())
                 .addPathPatterns("/api/**")
-                // 探活、登录、注册、退出无需登录（退出设计为幂等）
+                // 探活、登录、退出无需登录（退出设计为幂等）
                 .excludePathPatterns(
                         "/api/ping",
                         "/api/identity/login",
-                        "/api/identity/register",
                         "/api/identity/logout"
                 );
     }

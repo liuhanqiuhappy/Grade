@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 /**
  * 开发期演示账号初始化：表里没有该登录名时补一条，已存在则跳过（幂等）。
  * 口令在这里现场 BCrypt 加密，避免往 SQL 里写死哈希或明文。
- * 教师账号由种子数据/管理员创建，自助注册只产生学生账号。
+ * 教师账号由种子数据/管理员创建，自助注册已于契约 v0.4 移除。
  * 生产环境通过 app.demo-data.enabled=false 关闭。
  */
 @Component

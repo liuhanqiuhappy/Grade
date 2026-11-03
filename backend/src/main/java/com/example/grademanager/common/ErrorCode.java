@@ -9,8 +9,6 @@ public enum ErrorCode {
     BAD_CREDENTIALS(1001, "用户名或密码错误"),
     UNAUTHENTICATED(1002, "登录已过期，请重新登录"),
     FORBIDDEN(1003, "无权访问该功能"),
-    /** 注册：用户名已被占用（契约 §2） */
-    USERNAME_TAKEN(1004, "用户名已被注册"),
     PARAM_INVALID(4001, "参数校验失败"),
     INTERNAL_ERROR(5000, "系统繁忙，请稍后重试");
 

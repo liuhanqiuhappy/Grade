@@ -2,7 +2,6 @@ package com.example.grademanager.identity.controller;
 
 import com.example.grademanager.common.ApiResponse;
 import com.example.grademanager.identity.dto.LoginRequest;
-import com.example.grademanager.identity.dto.RegisterRequest;
 import com.example.grademanager.identity.dto.UserInfoResponse;
 import com.example.grademanager.identity.service.IdentityService;
 import com.example.grademanager.identity.session.SessionKeys;
@@ -17,7 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 身份模块：登录 / 当前身份 / 退出 / 注册。
+ * 身份模块：登录 / 当前身份 / 退出。
+ * 注册接口已于契约 v0.4 移除，账号由种子数据/管理员创建。
  * 所有方法均返回 HTTP 200，业务结果看 code。
  */
 @RestController
@@ -62,11 +62,5 @@ public class IdentityController {
             session.invalidate();
         }
         return ApiResponse.ok();
-    }
-
-    /** 契约 §3.5 注册：仅创建学生账号，不自动登录（不建会话） */
-    @PostMapping("/register")
-    public ApiResponse<UserInfoResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ApiResponse.ok(identityService.register(request));
     }
 }

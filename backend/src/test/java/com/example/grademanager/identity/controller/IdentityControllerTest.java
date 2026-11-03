@@ -17,7 +17,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -137,77 +136,6 @@ class IdentityControllerTest {
         mockMvc.perform(post("/api/identity/logout"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
-    }
-
-    @Test
-    void registerSuccessReturnsStudentRoleWithoutPassword() throws Exception {
-        when(userMapper.selectCount(any())).thenReturn(0L);
-        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
-            User inserted = invocation.getArgument(0);
-            inserted.setId(99L);
-            return 1;
-        });
-
-        mockMvc.perform(post("/api/identity/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"username\":\"student99\",\"password\":\"pass1234\",\"displayName\":\"李同学\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.username").value("student99"))
-                .andExpect(jsonPath("$.data.role").value("STUDENT"))
-                .andExpect(jsonPath("$.data.password").doesNotExist());
-    }
-
-    @Test
-    void registerInvalidUsernameIs4001() throws Exception {
-        mockMvc.perform(post("/api/identity/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"username\":\"1abc\",\"password\":\"pass1234\",\"displayName\":\"李同学\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(4001))
-                .andExpect(jsonPath("$.message").value("用户名需以字母开头，由字母、数字、下划线组成，长度 4-32 个字符"));
-    }
-
-    @Test
-    void registerShortPasswordIs4001() throws Exception {
-        mockMvc.perform(post("/api/identity/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"username\":\"student99\",\"password\":\"1234\",\"displayName\":\"李同学\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(4001))
-                .andExpect(jsonPath("$.message").value("密码长度需为 8-64 个字符"));
-    }
-
-    @Test
-    void registerDuplicateUsernameIs1004() throws Exception {
-        when(userMapper.selectCount(any())).thenReturn(1L);
-
-        mockMvc.perform(post("/api/identity/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"username\":\"student01\",\"password\":\"pass1234\",\"displayName\":\"刘同学\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1004))
-                .andExpect(jsonPath("$.message").value("用户名已被注册"));
-    }
-
-    @Test
-    void registerDoesNotCreateSession() throws Exception {
-        when(userMapper.selectCount(any())).thenReturn(0L);
-        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
-            User inserted = invocation.getArgument(0);
-            inserted.setId(100L);
-            return 1;
-        });
-
-        MvcResult result = mockMvc.perform(post("/api/identity/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"username\":\"student98\",\"password\":\"pass1234\",\"displayName\":\"王同学\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andReturn();
-
-        // 契约 Q7：注册成功不自动登录，不得建立会话
-        assertNull(result.getRequest().getSession(false), "注册成功不应建立会话");
     }
 
     @Test

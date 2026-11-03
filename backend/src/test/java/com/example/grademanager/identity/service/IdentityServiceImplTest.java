@@ -2,24 +2,19 @@ package com.example.grademanager.identity.service;
 
 import com.example.grademanager.common.BusinessException;
 import com.example.grademanager.identity.dto.LoginRequest;
-import com.example.grademanager.identity.dto.RegisterRequest;
 import com.example.grademanager.identity.dto.UserInfoResponse;
 import com.example.grademanager.identity.entity.User;
 import com.example.grademanager.identity.mapper.UserMapper;
 import com.example.grademanager.identity.service.impl.IdentityServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class IdentityServiceImplTest {
@@ -78,39 +73,6 @@ class IdentityServiceImplTest {
                 () -> identityService.login(new LoginRequest("teacher01", "pass1234")));
 
         assertEquals(1001, ex.getCode());
-    }
-
-    @Test
-    void registerStoresHashAndForcesStudentRole() {
-        when(userMapper.selectCount(any())).thenReturn(0L);
-        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
-            User inserted = invocation.getArgument(0);
-            inserted.setId(99L);
-            return 1;
-        });
-
-        UserInfoResponse created = identityService.register(new RegisterRequest("student99", "pass1234", "李同学"));
-
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userMapper).insert(captor.capture());
-        User saved = captor.getValue();
-
-        assertEquals(99L, created.userId());
-        assertEquals("STUDENT", saved.getRole());
-        assertEquals("STUDENT", created.role());
-        assertNotNull(saved.getPasswordHash());
-        assertTrue(passwordEncoder.matches("pass1234", saved.getPasswordHash()), "库中应为可校验的 BCrypt 哈希");
-        assertTrue(!saved.getPasswordHash().contains("pass1234"), "库中不得出现明文口令");
-    }
-
-    @Test
-    void registerDuplicateUsernameIs1004() {
-        when(userMapper.selectCount(any())).thenReturn(1L);
-
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> identityService.register(new RegisterRequest("student01", "pass1234", "刘同学")));
-
-        assertEquals(1004, ex.getCode());
     }
 
     private User teacher() {
