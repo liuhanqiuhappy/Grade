@@ -1,0 +1,280 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "高校学生成绩管理系统 · 登录与身份模块",
+    "description": "第一轮冲刺（登录与身份）接口契约。与 docs/API_CONTRACT.md 配套，不一致时以 API_CONTRACT.md 为准并同步修正本文件。0.2.0 新增注册草案（仅学生自助注册，不接受 role）。",
+    "version": "0.2.0"
+  },
+  "servers": [
+    { "url": "http://localhost:8080", "description": "后端本机" }
+  ],
+  "tags": [
+    { "name": "identity", "description": "登录与身份" },
+    { "name": "system", "description": "系统探活" }
+  ],
+  "paths": {
+    "/api/ping": {
+      "get": {
+        "tags": ["system"],
+        "summary": "探活",
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "服务正常",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_PingData" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/login": {
+      "post": {
+        "tags": ["identity"],
+        "summary": "登录",
+        "description": "正确凭据返回身份并建立会话（Set-Cookie: JSESSIONID，HttpOnly）。凭据不匹配返回 code=1001；必填缺失返回 code=4001。业务失败均为 HTTP 200。",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功（code=0）或业务失败（code=1001/4001/5000）",
+            "headers": {
+              "Set-Cookie": {
+                "description": "仅登录成功时下发：JSESSIONID=...; HttpOnly",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_UserInfo" },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "userId": 1,
+                        "username": "teacher01",
+                        "displayName": "周老师",
+                        "role": "TEACHER"
+                      }
+                    }
+                  },
+                  "badCredentials": {
+                    "value": { "code": 1001, "message": "用户名或密码错误", "data": null }
+                  },
+                  "missingField": {
+                    "value": { "code": 4001, "message": "用户名不能为空", "data": null }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/me": {
+      "get": {
+        "tags": ["identity"],
+        "summary": "查询当前登录身份",
+        "description": "需要已登录会话。前端用于刷新后恢复登录态；code=1002 时跳转登录页。",
+        "operationId": "getCurrentUser",
+        "security": [{ "SessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "已登录（code=0）或未登录/过期（code=1002）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_UserInfo" },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "userId": 2,
+                        "username": "student01",
+                        "displayName": "刘同学",
+                        "role": "STUDENT"
+                      }
+                    }
+                  },
+                  "notLoggedIn": {
+                    "value": { "code": 1002, "message": "登录已过期，请重新登录", "data": null }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/logout": {
+      "post": {
+        "tags": ["identity"],
+        "summary": "退出登录",
+        "description": "使当前会话失效。设计为幂等：会话已失效时也返回 code=0。退出后再访问受保护接口将返回 code=1002。",
+        "operationId": "logout",
+        "security": [{ "SessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "退出成功（幂等，始终 code=0）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_Null" },
+                "example": { "code": 0, "message": "ok", "data": null }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/register": {
+      "post": {
+        "tags": ["identity"],
+        "summary": "注册（草案，待确认）",
+        "description": "仅学生自助注册：服务端固定 role=STUDENT，请求体不接受 role。注册成功不自动登录，前端跳登录页。用户名重复返回 1004，格式不合法返回 4001。",
+        "operationId": "register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "注册成功（code=0）或业务失败（code=1004/4001/5000）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_UserInfo" },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "userId": 12,
+                        "username": "student99",
+                        "displayName": "李同学",
+                        "role": "STUDENT"
+                      }
+                    }
+                  },
+                  "duplicate": {
+                    "value": { "code": 1004, "message": "用户名已被注册", "data": null }
+                  },
+                  "invalid": {
+                    "value": { "code": 4001, "message": "密码长度需为 8-64 个字符", "data": null }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JSESSIONID",
+        "description": "登录后由服务端下发的会话 Cookie（HttpOnly）"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "description": "登录名", "example": "teacher01" },
+          "password": { "type": "string", "description": "口令", "example": "pass1234" }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["username", "password", "displayName"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "登录名：字母开头，仅字母/数字/下划线，4-32 位",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{3,31}$",
+            "example": "student99"
+          },
+          "password": {
+            "type": "string",
+            "description": "口令：8-64 位（两次一致性由前端校验，后端不接收 confirmPassword）",
+            "minLength": 8,
+            "maxLength": 64,
+            "example": "pass1234"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "姓名：1-50 字符",
+            "minLength": 1,
+            "maxLength": 50,
+            "example": "李同学"
+          }
+        }
+      },
+      "UserInfo": {
+        "type": "object",
+        "required": ["userId", "username", "displayName", "role"],
+        "properties": {
+          "userId": { "type": "integer", "description": "用户 ID", "example": 1 },
+          "username": { "type": "string", "description": "登录名", "example": "teacher01" },
+          "displayName": { "type": "string", "description": "姓名", "example": "周老师" },
+          "role": {
+            "type": "string",
+            "enum": ["TEACHER", "STUDENT"],
+            "description": "角色，由服务端会话判定，客户端自述不采信"
+          }
+        }
+      },
+      "ApiResponse_UserInfo": {
+        "type": "object",
+        "required": ["code", "message", "data"],
+        "properties": {
+          "code": { "type": "integer", "description": "0=成功；1001 凭据错误；1002 未登录；1003 权限不足；1004 用户名已被注册；4001 参数校验失败；5000 系统错误", "example": 0 },
+          "message": { "type": "string", "example": "ok" },
+          "data": { "$ref": "#/components/schemas/UserInfo" }
+        }
+      },
+      "ApiResponse_PingData": {
+        "type": "object",
+        "required": ["code", "message", "data"],
+        "properties": {
+          "code": { "type": "integer", "example": 0 },
+          "message": { "type": "string", "example": "ok" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "example": "ok" }
+            }
+          }
+        }
+      },
+      "ApiResponse_Null": {
+        "type": "object",
+        "required": ["code", "message", "data"],
+        "properties": {
+          "code": { "type": "integer", "example": 0 },
+          "message": { "type": "string", "example": "ok" },
+          "data": { "type": "object", "nullable": true, "example": null }
+        }
+      }
+    }
+  }
+}

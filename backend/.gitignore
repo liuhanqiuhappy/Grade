@@ -1,0 +1,9 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.iml
+.idea/
+*.log
+# 本地环境配置（含数据库密码）不入库
+application-local.yml
+application-local.yaml
+application-local.properties

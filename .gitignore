@@ -1,0 +1,38 @@
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+*.lst
+*.dumpstream
+hs_err_pid*
+replay_pid*
+
+# ---- Node / 前端 ----
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ---- 环境变量与密钥（禁止提交） ----
+.env
+.env.*
+!.env.example
+
+# ---- IDE / 工具 ----
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.codebuddy/
+.workbuddy/
+
+# ---- 系统文件 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 日志 ----
+*.log
+logs/

@@ -1,0 +1,41 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      # 契约 Q1：会话超时 30 分钟（可配）
+      timeout: 30m
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        same-site: lax
+
+spring:
+  application:
+    name: grade-manager-backend
+  datasource:
+    # 开发库：库名 grade_manager，不存在时自动创建；密码只从环境变量读取
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:grade_manager}?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+app:
+  demo-data:
+    # 仅开发期：启动时补齐演示账号（teacher01 / student01，口令 pass1234）
+    enabled: ${DEMO_DATA_ENABLED:true}
+
+logging:
+  level:
+    com.example.grademanager: info
