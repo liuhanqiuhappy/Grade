@@ -1,4 +1,4 @@
-# ---- Java / Maven ----
+# ---- Java / Maven（后端） ----
 target/
 *.class
 *.jar
@@ -13,8 +13,9 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+.vite/
 
-# ---- 环境变量与密钥（禁止提交） ----
+# ---- 环境变量与密钥（禁止提交）----
 .env
 .env.*
 !.env.example
@@ -27,6 +28,9 @@ dist-ssr/
 *.swo
 .codebuddy/
 .workbuddy/
+
+# ---- 测试与覆盖率 ----
+coverage/
 
 # ---- 系统文件 ----
 .DS_Store
