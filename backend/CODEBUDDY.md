@@ -2,7 +2,7 @@
 
 ## 项目概况
 
-- **位置**：仓库根目录下的 `backend/`（当前状态：**已初始化**，登录/注册/退出/me/ping 已实现，待联调与确认契约 §4 待确认项）
+- **位置**：仓库根目录下的 `backend/`（当前状态：**已初始化**，登录/注册/退出/me/ping 已实现，契约 v0.3 已定稿，待端到端联调）
 - **技术栈**：Spring Boot 3.x + JDK 17（Temurin）+ Maven 3.9.x + MyBatis-Plus（**boot3 版 starter**）+ Flyway + MySQL 8.4
 - **开发工具**：IntelliJ IDEA（免费功能足够；数据库用 DBeaver，接口测试用 Apifox）
 - **运行**：Maven 启动 → `http://localhost:8080`；探活 `GET /api/ping`
@@ -23,7 +23,7 @@
 3. 包结构按模块划分，身份模块：`com.xxx.identity`（controller / service / entity / mapper）
 4. 先实现 `GET /api/ping` 并跑通，再写业务接口
 
-## 已实现的接口（契约 v0.2，Identity 模块）
+## 已实现的接口（契约 v0.3，Identity 模块）
 
 | 接口 | 要点 | 错误码 |
 | --- | --- | --- |
@@ -31,7 +31,7 @@
 | `POST /api/identity/login` | 凭据校验 + 建会话；成功返回 `userId/username/displayName/role`；`Set-Cookie: JSESSIONID`（HttpOnly） | `4001` 缺字段；`1001` 凭据错（不区分账号不存在/密码错） |
 | `GET /api/identity/me` | 从会话取当前身份，用于前端恢复登录态 | `1002` 未登录/过期 |
 | `POST /api/identity/logout` | 使会话失效；**幂等**：会话已失效也返回 `code=0` | — |
-| `POST /api/identity/register` | **契约 §3.5 草案**：仅学生自助注册，不接收 `role`，成功不自动登录 | `4001` 字段非法；`1004` 用户名已存在 |
+| `POST /api/identity/register` | **契约 §3.5（已定稿）**：仅学生自助注册，不接收 `role`，成功不自动登录 | `4001` 字段非法；`1004` 用户名已存在 |
 
 ## 统一响应与异常规范
 
@@ -49,7 +49,7 @@
 
 ## 测试要求
 
-1. 自动化回归：`mvn test`（**17 用例**，不依赖 MySQL）
+1. 自动化回归：`mvn test`（**18 用例**，不依赖 MySQL）
    - `IdentityServiceImplTest`：口令校验、1001 统一提示、注册落 BCrypt 哈希并强制 STUDENT、重名 1004。
    - `IdentityControllerTest`：HTTP 一律 200、4001/1001/1002/1004、会话建立与失效、退出幂等、注册不自动登录。
 2. Apifox 导入 `docs/openapi.json`，按 `docs/联调测试与验收指南.md` §3 的 TC-01～TC-16 逐条跑。
@@ -58,7 +58,7 @@
 
 ## 待确认事项
 
-契约 §4 的 Q1-Q11 已由后端**按"当前草案"取值全部实现**（2026-11-03），剩余动作是与前端同伴逐条确认；取值如变更，只需改 DTO/校验注解/`application.yml`，不动表结构。
+契约 §4 的 Q1-Q11 已于 2026-11-03 **定稿**（Q5 注册保留、Q9 记住密码为前端本地实现），后端实现与契约一致；如课程官方契约另有要求，按「改契约 → 改 DTO/校验注解/`application.yml`」的顺序调整，不动表结构。
 
 ## 本地运行
 

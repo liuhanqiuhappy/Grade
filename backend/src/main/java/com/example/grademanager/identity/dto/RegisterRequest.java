@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * 注册请求（契约 §3.5 草案，待前后端确认）。
+ * 注册请求（契约 §3.5，已定稿）。
  * 刻意不接收 role：角色由服务端固定为 STUDENT，防止自助注册教师造成越权。
  * confirmPassword 由前端校验，后端不接收。
  */

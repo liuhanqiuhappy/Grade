@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -187,6 +188,26 @@ class IdentityControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1004))
                 .andExpect(jsonPath("$.message").value("用户名已被注册"));
+    }
+
+    @Test
+    void registerDoesNotCreateSession() throws Exception {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
+            User inserted = invocation.getArgument(0);
+            inserted.setId(100L);
+            return 1;
+        });
+
+        MvcResult result = mockMvc.perform(post("/api/identity/register")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"username\":\"student98\",\"password\":\"pass1234\",\"displayName\":\"王同学\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn();
+
+        // 契约 Q7：注册成功不自动登录，不得建立会话
+        assertNull(result.getRequest().getSession(false), "注册成功不应建立会话");
     }
 
     @Test

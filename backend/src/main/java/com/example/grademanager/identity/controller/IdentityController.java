@@ -64,7 +64,7 @@ public class IdentityController {
         return ApiResponse.ok();
     }
 
-    /** 契约 §3.5（草案）注册：仅创建学生账号，不自动登录 */
+    /** 契约 §3.5 注册：仅创建学生账号，不自动登录（不建会话） */
     @PostMapping("/register")
     public ApiResponse<UserInfoResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ApiResponse.ok(identityService.register(request));
