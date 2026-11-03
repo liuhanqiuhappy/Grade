@@ -11,17 +11,6 @@ export function login(payload){
   })
 }
 
-// 注册 POST /api/identity/register（契约 §3.5）
-// 只提交 username/password/displayName；confirmPassword 由前端校验，不发后端
-export function register(payload){
-  return request({
-    url:'/identity/register',
-    method:'post',
-    data: payload,
-    silent: true
-  })
-}
-
 // 获取当前身份 GET /api/identity/me
 export function getMe(){
   return request({

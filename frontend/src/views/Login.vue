@@ -3,8 +3,6 @@
     <div class="card shadow p-4" style="width: 420px;">
       <h2 class="text-center mb-4">登录</h2>
 
-      <!-- 注册成功回来的一次性提示 -->
-      <div v-if="registeredTip" class="alert alert-success py-2">注册成功，请使用新账号登录</div>
       <!-- 业务失败提示：直接展示后端 message（契约 §5.4） -->
       <div v-if="errorMessage" class="alert alert-danger py-2">{{ errorMessage }}</div>
 
@@ -31,24 +29,18 @@
           {{ loading ? "登录中，请稍候..." : "登录" }}
         </button>
       </form>
-
-      <div class="text-center mt-3">
-        还没有账号？
-        <router-link to="/register">去注册</router-link>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { login } from '@/api/identity'
 import { useIdentityStore } from '@/store/useIdentity'
 import { loadCredential, saveCredential, clearCredential } from '@/utils/rememberedCredential'
 
 const router = useRouter()
-const route = useRoute()
 const identityStore = useIdentityStore()
 
 const form = ref({
@@ -58,18 +50,11 @@ const form = ref({
 const remember = ref(false)
 const loading = ref(false)
 const errorMessage = ref("")
-const registeredTip = ref(route.query.registered === '1')
 
 onMounted(() => {
-  // 1) 从注册页带回来的账号优先回填
-  const queryUsername = typeof route.query.username === 'string' ? route.query.username.trim() : ""
-  if (queryUsername) {
-    form.value.username = queryUsername
-  }
-  // 2) 有本地记住的凭据则回填账号密码并自动勾选
-  //    若刚注册的账号与记住的账号不是同一个，就不能拿旧密码去填新账号
+  // 有本地记住的凭据则回填账号密码并自动勾选
   const saved = loadCredential()
-  if (saved && (!queryUsername || queryUsername === saved.username)) {
+  if (saved) {
     form.value.username = saved.username
     form.value.password = saved.password
     remember.value = true
@@ -78,7 +63,6 @@ onMounted(() => {
 
 const onSubmit = async ()=>{
   errorMessage.value = ""
-  registeredTip.value = false
 
   const username = form.value.username?.trim() || ""
   const password = form.value.password || ""

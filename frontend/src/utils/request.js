@@ -15,7 +15,7 @@ service.interceptors.response.use(
     const res = response.data
     // 契约规则：code===0代表业务成功；非0全部业务异常
     if(res.code !== 0){
-      // silent 的请求（登录/注册）由页面自己展示错误，避免重复弹窗
+      // silent 的请求（登录）由页面自己展示错误，避免重复弹窗
       if(!response.config?.silent){
         window.alert(res.message || "业务异常")
       }
