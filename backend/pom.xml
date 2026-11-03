@@ -21,6 +21,8 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <!-- 本机 MySQL 9.x 需要 Flyway 10.20.1+（见 docs/联调测试与验收指南.md §7 风险1） -->
+        <flyway.version>10.20.1</flyway.version>
     </properties>
 
     <dependencies>
