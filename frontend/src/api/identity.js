@@ -1,11 +1,24 @@
 import request from '@/utils/request'
 
-// 登录 POST /api/identity/login
+// 登录 POST /api/identity/login（契约 §3.2）
+// silent：业务失败不弹全局 alert，由登录页自行展示错误
 export function login(payload){
   return request({
     url:'/identity/login',
     method:'post',
-    data: payload
+    data: payload,
+    silent: true
+  })
+}
+
+// 注册 POST /api/identity/register（契约 §3.5）
+// 只提交 username/password/displayName；confirmPassword 由前端校验，不发后端
+export function register(payload){
+  return request({
+    url:'/identity/register',
+    method:'post',
+    data: payload,
+    silent: true
   })
 }
 

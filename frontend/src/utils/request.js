@@ -15,15 +15,22 @@ service.interceptors.response.use(
     const res = response.data
     // 契约规则：code===0代表业务成功；非0全部业务异常
     if(res.code !== 0){
-      window.alert(res.message || "业务异常")
+      // silent 的请求（登录/注册）由页面自己展示错误，避免重复弹窗
+      if(!response.config?.silent){
+        window.alert(res.message || "业务异常")
+      }
       return Promise.reject(res)
     }
     return res
   },
   error => {
-    // HTTP层面异常：后端宕机、网络断开
-    window.alert("网络异常，无法连接后端服务，请确认后端已启动 /api/ping")
-    return Promise.reject(error)
+    // HTTP 层面异常：后端宕机、网络断开、路径写错
+    const message = "网络异常，无法连接后端服务，请确认后端已启动（/api/ping）"
+    if(!error.config?.silent){
+      window.alert(message)
+    }
+    // 统一成 {code, message, data} 形状，页面只按 message 展示即可
+    return Promise.reject({ code: -1, message, data: null })
   }
 )
 
