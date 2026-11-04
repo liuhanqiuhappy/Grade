@@ -21,5 +21,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/identity/login",
                         "/api/identity/logout"
                 );
+
+        // 模块二（契约 §7.4）：角色校验拦截器，注册在登录拦截器之后（先判登录 1002，再判角色 1003）
+        registry.addInterceptor(new RoleAuthInterceptor())
+                .addPathPatterns("/api/**");
     }
 }
