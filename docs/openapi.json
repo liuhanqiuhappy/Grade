@@ -1,0 +1,230 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "高校学生成绩管理系统 · 登录与身份模块",
+    "description": "第一轮冲刺（登录与身份）接口契约。与 docs/API_CONTRACT.md 配套，不一致时以 API_CONTRACT.md 为准并同步修正本文件。0.4.0：移除注册接口（POST /api/identity/register）、RegisterRequest 与错误码 1004，账号由种子数据/管理员创建；「记住密码」为纯前端本地行为（契约 §3.8），不新增任何请求字段。",
+    "version": "0.4.0"
+  },
+  "servers": [
+    { "url": "http://localhost:8080", "description": "后端本机" }
+  ],
+  "tags": [
+    { "name": "identity", "description": "登录与身份" },
+    { "name": "system", "description": "系统探活" }
+  ],
+  "paths": {
+    "/api/ping": {
+      "get": {
+        "tags": ["system"],
+        "summary": "探活",
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "服务正常",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_PingData" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/login": {
+      "post": {
+        "tags": ["identity"],
+        "summary": "登录",
+        "description": "正确凭据返回身份并建立会话（Set-Cookie: JSESSIONID，HttpOnly）。凭据不匹配返回 code=1001（不区分账号不存在与密码错误）；必填缺失返回 code=4001。业务失败均为 HTTP 200。请求体只有 username/password 两个字段：不接受 remember/rememberMe 等参数，「记住密码」是前端本地凭据缓存（契约 §3.8），不影响本接口入参与会话时长。",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功（code=0）或业务失败（code=1001/4001/5000）",
+            "headers": {
+              "Set-Cookie": {
+                "description": "仅登录成功时下发：JSESSIONID=...; HttpOnly",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_UserInfo" },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "userId": 1,
+                        "username": "teacher01",
+                        "displayName": "周老师",
+                        "role": "TEACHER"
+                      }
+                    }
+                  },
+                  "badCredentials": {
+                    "value": { "code": 1001, "message": "用户名或密码错误", "data": null }
+                  },
+                  "missingField": {
+                    "value": { "code": 4001, "message": "用户名不能为空", "data": null }
+                  },
+                  "missingPassword": {
+                    "value": { "code": 4001, "message": "密码不能为空", "data": null }
+                  },
+                  "badJson": {
+                    "value": { "code": 4001, "message": "请求参数格式不正确", "data": null }
+                  },
+                  "internal": {
+                    "value": { "code": 5000, "message": "系统繁忙，请稍后重试", "data": null }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/me": {
+      "get": {
+        "tags": ["identity"],
+        "summary": "查询当前登录身份",
+        "description": "需要已登录会话。前端用于刷新后恢复登录态；code=1002 时跳转登录页。",
+        "operationId": "getCurrentUser",
+        "security": [{ "SessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "已登录（code=0）或未登录/过期（code=1002）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_UserInfo" },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "userId": 2,
+                        "username": "student01",
+                        "displayName": "刘同学",
+                        "role": "STUDENT"
+                      }
+                    }
+                  },
+                  "notLoggedIn": {
+                    "value": { "code": 1002, "message": "登录已过期，请重新登录", "data": null }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/identity/logout": {
+      "post": {
+        "tags": ["identity"],
+        "summary": "退出登录",
+        "description": "使当前会话失效。设计为幂等：会话已失效时也返回 code=0。退出后再访问受保护接口将返回 code=1002。",
+        "operationId": "logout",
+        "security": [{ "SessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "退出成功（幂等，始终 code=0）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiResponse_Null" },
+                "example": { "code": 0, "message": "ok", "data": null }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JSESSIONID",
+        "description": "登录后由服务端下发的会话 Cookie（HttpOnly）"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "description": "登录名", "example": "teacher01" },
+          "password": { "type": "string", "description": "口令", "example": "pass1234" }
+        }
+      },
+      "ErrorCode": {
+        "type": "integer",
+        "description": "业务结果码（契约 §2）。HTTP 状态码恒为 200，业务成败只看本字段。",
+        "enum": [0, 1001, 1002, 1003, 4001, 5000],
+        "x-enum-descriptions": {
+          "0": "成功",
+          "1001": "凭据错误：登录名或口令不匹配，不区分账号不存在与密码错误，防止账号枚举",
+          "1002": "未登录或会话已过期：请求受保护接口但无有效会话",
+          "1003": "权限不足：已登录但越权访问（如学生请求教师功能）",
+          "4001": "参数校验失败：必填缺失或格式非法，message 指出具体字段",
+          "5000": "系统内部错误：前端提示稍后重试即可"
+        }
+      },
+      "UserInfo": {
+        "type": "object",
+        "required": ["userId", "username", "displayName", "role"],
+        "properties": {
+          "userId": { "type": "integer", "description": "用户 ID", "example": 1 },
+          "username": { "type": "string", "description": "登录名", "example": "teacher01" },
+          "displayName": { "type": "string", "description": "姓名", "example": "周老师" },
+          "role": {
+            "type": "string",
+            "enum": ["TEACHER", "STUDENT"],
+            "description": "角色，由服务端会话判定，客户端自述不采信"
+          }
+        }
+      },
+      "ApiResponse_UserInfo": {
+        "type": "object",
+        "required": ["code", "message", "data"],
+        "properties": {
+          "code": { "$ref": "#/components/schemas/ErrorCode" },
+          "message": { "type": "string", "example": "ok" },
+          "data": { "$ref": "#/components/schemas/UserInfo" }
+        }
+      },
+      "ApiResponse_PingData": {
+        "type": "object",
+        "required": ["code", "message", "data"],
+        "properties": {
+          "code": { "$ref": "#/components/schemas/ErrorCode" },
+          "message": { "type": "string", "example": "ok" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "example": "ok" }
+            }
+          }
+        }
+      },
+      "ApiResponse_Null": {
+        "type": "object",
+        "required": ["code", "message", "data"],
+        "properties": {
+          "code": { "$ref": "#/components/schemas/ErrorCode" },
+          "message": { "type": "string", "example": "ok" },
+          "data": { "type": "object", "nullable": true, "example": null }
+        }
+      }
+    }
+  }
+}
