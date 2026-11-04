@@ -70,3 +70,17 @@ export function resetStudentPassword(studentId) {
     silent: true
   })
 }
+
+/**
+ * 批量导入学生（Excel，契约 v1.0 之外的扩展）
+ * 提交 multipart/form-data（字段名 file）；部分成功语义，返回 {totalCount,successCount,failedCount,failures}
+ */
+export function importStudents(classId, formData) {
+  return request({
+    url: `/classes/${classId}/students/import`,
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    silent: true
+  })
+}

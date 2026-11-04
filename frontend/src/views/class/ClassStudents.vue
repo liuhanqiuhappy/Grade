@@ -16,6 +16,7 @@
         </select>
         <button class="btn btn-primary btn-sm" @click="onSearch">查询</button>
         <button class="btn btn-success btn-sm" :disabled="classStatus === 0" @click="openAdd">+ 添加学生</button>
+        <button class="btn btn-info btn-sm" :disabled="classStatus === 0" @click="openImport">⇪ 批量导入</button>
       </div>
 
       <div v-if="pageError" class="alert alert-danger py-2">{{ pageError }}</div>
@@ -136,12 +137,76 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== 批量导入学生 Modal（Excel 上传，部分成功）===== -->
+  <div v-if="importVisible" class="modal-overlay">
+    <div class="modal-card card shadow">
+      <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <span>批量导入学生（Excel）</span>
+        <button class="btn-close btn-close-white" @click="importVisible = false"></button>
+      </div>
+      <div class="card-body">
+        <div v-if="importError" class="alert alert-danger py-2">{{ importError }}</div>
+        <div class="alert alert-info small mb-3">
+          请选择 <code>.xlsx</code> / <code>.xls</code> 文件。<br />
+          第一行为表头，从第二行起每行一个学生：<strong>第 1 列学号</strong>（字母或数字，4–32 位）、
+          <strong>第 2 列姓名</strong>（1–50 字）。<br />
+          重复学号、格式错误的行会被跳过并列出原因，其余正常导入。
+        </div>
+        <input type="file" class="form-control" accept=".xlsx,.xls"
+               :disabled="importSubmitting" @change="onPickFile" />
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button class="btn btn-secondary" :disabled="importSubmitting" @click="importVisible = false">取消</button>
+        <button class="btn btn-info" :disabled="importSubmitting || !importFile" @click="doImport">
+          {{ importSubmitting ? '导入中…' : '开始导入' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 批量导入结果 Modal（部分成功明细）===== -->
+  <div v-if="importResultVisible" class="modal-overlay">
+    <div class="modal-card card shadow">
+      <div class="card-header d-flex justify-content-between align-items-center"
+           :class="importResult && importResult.failedCount > 0 ? 'bg-warning text-dark' : 'bg-success text-white'">
+        <span>批量导入结果</span>
+        <button class="btn-close btn-close-white" @click="importResultVisible = false"></button>
+      </div>
+      <div class="card-body">
+        <div v-if="importResult" class="mb-2">
+          <span class="me-3">共 <strong>{{ importResult.totalCount }}</strong> 条</span>
+          <span class="text-success me-3">成功 <strong>{{ importResult.successCount }}</strong></span>
+          <span :class="importResult.failedCount > 0 ? 'text-danger' : 'text-success'">
+            失败 <strong>{{ importResult.failedCount }}</strong>
+          </span>
+        </div>
+        <div v-if="importResult && importResult.failures.length > 0" class="table-responsive" style="max-height: 260px;">
+          <table class="table table-sm table-striped">
+            <thead><tr><th>行号</th><th>学号</th><th>姓名</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr v-for="f in importResult.failures" :key="f.row">
+                <td>{{ f.row }}</td><td>{{ f.studentNo }}</td><td>{{ f.name }}</td>
+                <td class="text-danger small">{{ f.message }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="importResult && importResult.failedCount === 0" class="alert alert-success small mb-0">
+          全部导入成功，名单已刷新。
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-end">
+        <button class="btn btn-primary" @click="closeImportResult">知道了</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listClassStudents, addStudent } from '@/api/student'
+import { listClassStudents, addStudent, importStudents } from '@/api/student'
 
 const route = useRoute()
 const router = useRouter()
@@ -258,6 +323,52 @@ function closePassword() {
   createdStudent.value = null
   initialPassword.value = ''
   copied = false
+}
+
+// ---------- 批量导入（Excel，部分成功）----------
+const importVisible = ref(false)
+const importSubmitting = ref(false)
+const importError = ref('')
+const importFile = ref(null)
+const importResultVisible = ref(false)
+const importResult = ref(null)
+
+function openImport() {
+  importFile.value = null
+  importError.value = ''
+  importResult.value = null
+  importVisible.value = true
+}
+
+function onPickFile(e) {
+  importFile.value = (e.target.files && e.target.files[0]) || null
+}
+
+async function doImport() {
+  if (!importFile.value) { importError.value = '请先选择 Excel 文件'; return }
+  const ext = importFile.value.name.split('.').pop().toLowerCase()
+  if (!['xlsx', 'xls'].includes(ext)) { importError.value = '仅支持 .xlsx / .xls 文件'; return }
+  importError.value = ''
+  importSubmitting.value = true
+  const formData = new FormData()
+  formData.append('file', importFile.value)
+  try {
+    const res = await importStudents(classId, formData)
+    importResult.value = res.data || {}
+    importVisible.value = false
+    importResultVisible.value = true
+    reload(1)
+  } catch (e) {
+    importError.value = e?.message || '导入失败'
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+function closeImportResult() {
+  importResultVisible.value = false
+  importResult.value = null
+  importFile.value = null
 }
 
 onMounted(() => fetchStudents(1))

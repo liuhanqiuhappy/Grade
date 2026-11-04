@@ -6,6 +6,7 @@ import com.example.grademanager.academic.dto.PageResult;
 import com.example.grademanager.academic.dto.ResetPasswordResponse;
 import com.example.grademanager.academic.dto.StudentCreateRequest;
 import com.example.grademanager.academic.dto.StudentCreateResponse;
+import com.example.grademanager.academic.dto.StudentImportResponse;
 import com.example.grademanager.academic.dto.StudentUpdateRequest;
 import com.example.grademanager.academic.dto.StudentView;
 import com.example.grademanager.academic.entity.SchoolClass;
@@ -20,13 +21,23 @@ import com.example.grademanager.identity.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -50,6 +61,11 @@ public class StudentServiceImpl implements StudentService {
     private final UserMapper userMapper;
     private final SchoolClassMapper classMapper;
     private final PasswordEncoder passwordEncoder;
+
+    /** 自引用（@Lazy 代理）：批量导入逐行调用 S2 create 时走 AOP 事务，实现部分成功 */
+    @Autowired
+    @Lazy
+    private StudentService self;
 
     public StudentServiceImpl(StudentMapper studentMapper, UserMapper userMapper,
                               SchoolClassMapper classMapper, PasswordEncoder passwordEncoder) {
@@ -238,6 +254,74 @@ public class StudentServiceImpl implements StudentService {
         log.info("重置学生初始口令 studentId={}", studentId);
         return new ResetPasswordResponse(studentId, user.getUsername(), initialPassword,
                 TIME_FORMAT.format(LocalDateTime.now()));
+    }
+
+    @Override
+    public StudentImportResponse importFromExcel(Long classId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "请选择要导入的 Excel 文件");
+        }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !(filename.toLowerCase().endsWith(".xlsx") || filename.toLowerCase().endsWith(".xls"))) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "仅支持 .xlsx / .xls 格式的 Excel 文件");
+        }
+        SchoolClass clazz = classMapper.selectById(classId);
+        if (clazz == null) {
+            throw new BusinessException(ErrorCode.CLASS_NOT_FOUND);
+        }
+        if (clazz.getStatus() == 0) {
+            throw new BusinessException(ErrorCode.TARGET_CLASS_ARCHIVED);
+        }
+
+        // 解析 Excel：默认第一行为表头（学号、姓名），从第 2 行起为数据；空行跳过。
+        // 逐行独立事务（通过 self 代理调用 S2 create），实现"部分成功"：成功行已提交，失败行收集原因。
+        List<StudentImportResponse.Failure> failures = new ArrayList<>();
+        int total = 0;
+        int success = 0;
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet == null) {
+                throw new BusinessException(ErrorCode.PARAM_INVALID, "Excel 文件没有工作表");
+            }
+            for (Row row : sheet) {
+                int rowNum = row.getRowNum() + 1; // Excel 行号从 1 计数（含表头）
+                if (rowNum == 1) {
+                    continue; // 跳过表头
+                }
+                String studentNo = cellString(row.getCell(0));
+                String name = cellString(row.getCell(1));
+                if (studentNo.isEmpty() && name.isEmpty()) {
+                    continue; // 空行
+                }
+                total++;
+                try {
+                    self.create(classId, new StudentCreateRequest(studentNo, name));
+                    success++;
+                } catch (Exception e) {
+                    failures.add(new StudentImportResponse.Failure(rowNum, studentNo, name, e.getMessage()));
+                }
+            }
+        } catch (IOException e) {
+            log.warn("批量导入解析失败 classId={} file={}", classId, filename, e);
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "Excel 文件读取失败，请确认文件未损坏");
+        }
+        log.info("批量导入完成 classId={} total={} success={} failed={}", classId, total, success, failures.size());
+        return StudentImportResponse.of(total, success, failures);
+    }
+
+    private static String cellString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        String value;
+        switch (cell.getCellType()) {
+            case STRING -> value = cell.getStringCellValue();
+            case NUMERIC -> value = String.valueOf((long) cell.getNumericCellValue());
+            case BOOLEAN -> value = String.valueOf(cell.getBooleanCellValue());
+            case FORMULA -> value = cell.getCellFormula();
+            default -> value = "";
+        }
+        return value == null ? "" : value.trim();
     }
 
     private Student requireStudent(Long studentId) {

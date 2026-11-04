@@ -4,6 +4,7 @@ import com.example.grademanager.academic.dto.PageResult;
 import com.example.grademanager.academic.dto.ResetPasswordResponse;
 import com.example.grademanager.academic.dto.StudentCreateRequest;
 import com.example.grademanager.academic.dto.StudentCreateResponse;
+import com.example.grademanager.academic.dto.StudentImportResponse;
 import com.example.grademanager.academic.dto.StudentUpdateRequest;
 import com.example.grademanager.academic.dto.StudentView;
 import com.example.grademanager.academic.service.StudentService;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 学生与账号（契约模块二 §5 S1–S6）。仅允许 TEACHER，身份只从 Session 取。
@@ -77,5 +79,12 @@ public class StudentController {
     @PostMapping("/api/students/{studentId}/reset-password")
     public ApiResponse<ResetPasswordResponse> resetPassword(@PathVariable Long studentId) {
         return ApiResponse.ok(studentService.resetPassword(studentId));
+    }
+
+    /** 批量导入学生（Excel，契约 v1.0 之外的扩展）：multipart 上传，逐行独立事务，部分成功 */
+    @PostMapping("/api/classes/{classId}/students/import")
+    public ApiResponse<StudentImportResponse> importStudents(@PathVariable Long classId,
+                                                             @RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok(studentService.importFromExcel(classId, file));
     }
 }

@@ -4,8 +4,10 @@ import com.example.grademanager.academic.dto.PageResult;
 import com.example.grademanager.academic.dto.ResetPasswordResponse;
 import com.example.grademanager.academic.dto.StudentCreateRequest;
 import com.example.grademanager.academic.dto.StudentCreateResponse;
+import com.example.grademanager.academic.dto.StudentImportResponse;
 import com.example.grademanager.academic.dto.StudentUpdateRequest;
 import com.example.grademanager.academic.dto.StudentView;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 学生与账号（契约模块二 §5 S1–S6）。
@@ -29,4 +31,7 @@ public interface StudentService {
 
     /** S6 重置初始口令：生成新 8 位口令，旧口令立即失效 */
     ResetPasswordResponse resetPassword(Long studentId);
+
+    /** 批量导入学生（Excel，契约 v1.0 之外的扩展）：逐行独立事务，部分成功，返回成功/失败统计 */
+    StudentImportResponse importFromExcel(Long classId, MultipartFile file);
 }
