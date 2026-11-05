@@ -50,6 +50,12 @@ const routes = [
         path: 'courses',
         name: 'course-list',
         component: () => import('@/views/course/CourseList.vue')
+      },
+      // ===== 模块三：课程成员（M3B）=====
+      {
+        path: 'courses/:courseId/members',
+        name: 'course-members',
+        component: () => import('@/views/course/CourseMembers.vue')
       }
       // ===== 后续模块在此追加 =====
     ]

@@ -29,6 +29,7 @@
               <td>{{ c.courseName }}</td>
               <td>{{ c.createdAt }}</td>
               <td>
+                <button class="btn btn-sm btn-outline-primary me-1" @click="goMembers(c)">成员</button>
                 <button class="btn btn-sm btn-outline-secondary me-1" @click="openEdit(c)">编辑</button>
                 <button class="btn btn-sm btn-outline-danger" @click="openArchive(c)">归档</button>
               </td>
@@ -121,7 +122,10 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { listCourses, createCourse, updateCourse, archiveCourse } from '@/api/course'
+
+const router = useRouter()
 
 const loading = ref(false)
 const list = ref([])
@@ -164,6 +168,9 @@ function onSearch() { reload(1) }
 function onReset() {
   query.keyword = ''
   reload(1)
+}
+function goMembers(c) {
+  router.push({ name: 'course-members', params: { courseId: c.courseId } })
 }
 
 // ---------- 新建 / 编辑 ----------
