@@ -17,6 +17,10 @@
             <li class="nav-item">
               <router-link class="nav-link" :class="{ active: isActive('/app/students') }" to="/app/students">学生查询</router-link>
             </li>
+            <!-- ===== 模块三：课程管理 ===== -->
+            <li class="nav-item">
+              <router-link class="nav-link" :class="{ active: isActive('/app/courses') }" to="/app/courses">课程管理</router-link>
+            </li>
           </ul>
           <div class="d-flex align-items-center text-white">
             <span class="me-3">

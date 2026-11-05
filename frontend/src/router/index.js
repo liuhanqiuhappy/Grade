@@ -44,6 +44,12 @@ const routes = [
         path: 'students/:studentId',
         name: 'student-detail',
         component: () => import('@/views/student/StudentDetail.vue')
+      },
+      // ===== 模块三：课程管理（M3A）=====
+      {
+        path: 'courses',
+        name: 'course-list',
+        component: () => import('@/views/course/CourseList.vue')
       }
       // ===== 后续模块在此追加 =====
     ]
