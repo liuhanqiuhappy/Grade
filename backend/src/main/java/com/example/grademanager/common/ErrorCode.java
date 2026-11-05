@@ -26,7 +26,12 @@ public enum ErrorCode {
     COURSE_NOT_FOUND(3002, "课程不存在或已归档"),
     COURSE_FORBIDDEN(3003, "无权操作他人的课程"),
     COURSE_MEMBER_NOT_FOUND(3004, "课程成员不存在"),
-    COURSE_MEMBER_DUPLICATED(3005, "该学生已在课程成员中");
+    COURSE_MEMBER_DUPLICATED(3005, "该学生已在课程成员中"),
+
+    // ===== 模块四：成绩录入与确认（3xxx 号段继续）=====
+    GRADE_STUDENT_NOT_MEMBER(3006, "该学生不是此课程成员"),
+    GRADE_ALREADY_CONFIRMED(3007, "课程成绩已确认发布，不可修改"),
+    GRADE_VERSION_CONFLICT(3008, "成绩已被他人修改，请刷新后重试");
 
     private final int code;
     private final String message;
