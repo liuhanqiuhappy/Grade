@@ -19,7 +19,12 @@ public enum ErrorCode {
     STUDENT_NOT_FOUND(2004, "学生不存在"),
     CLASS_HAS_DRAFT_GRADES(2005, "班级存在未发布成绩，不可归档"),
     TARGET_CLASS_ARCHIVED(2006, "目标班级已归档，不能接收学生"),
-    USERNAME_DUPLICATED(2007, "登录名已被占用");
+    USERNAME_DUPLICATED(2007, "登录名已被占用"),
+
+    // ===== 模块三：课程与课程成员（3xxx 号段，M3A/M3B 使用）=====
+    COURSE_CODE_DUPLICATED(3001, "课程代码已存在"),
+    COURSE_NOT_FOUND(3002, "课程不存在或已归档"),
+    COURSE_FORBIDDEN(3003, "无权操作他人的课程");
 
     private final int code;
     private final String message;
