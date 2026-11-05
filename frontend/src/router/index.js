@@ -56,6 +56,12 @@ const routes = [
         path: 'courses/:courseId/members',
         name: 'course-members',
         component: () => import('@/views/course/CourseMembers.vue')
+      },
+      // ===== 模块四：成绩录入与确认（M4）=====
+      {
+        path: 'courses/:courseId/grades',
+        name: 'course-grades',
+        component: () => import('@/views/course/CourseGrades.vue')
       }
       // ===== 后续模块在此追加 =====
     ]

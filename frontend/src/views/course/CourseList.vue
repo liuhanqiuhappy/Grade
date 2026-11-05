@@ -30,6 +30,7 @@
               <td>{{ c.createdAt }}</td>
               <td>
                 <button class="btn btn-sm btn-outline-primary me-1" @click="goMembers(c)">成员</button>
+                <button class="btn btn-sm btn-outline-success me-1" @click="goGrades(c)">成绩</button>
                 <button class="btn btn-sm btn-outline-secondary me-1" @click="openEdit(c)">编辑</button>
                 <button class="btn btn-sm btn-outline-danger" @click="openArchive(c)">归档</button>
               </td>
@@ -171,6 +172,9 @@ function onReset() {
 }
 function goMembers(c) {
   router.push({ name: 'course-members', params: { courseId: c.courseId } })
+}
+function goGrades(c) {
+  router.push({ name: 'course-grades', params: { courseId: c.courseId } })
 }
 
 // ---------- 新建 / 编辑 ----------
