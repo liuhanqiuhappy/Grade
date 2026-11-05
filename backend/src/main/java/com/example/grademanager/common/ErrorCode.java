@@ -24,7 +24,9 @@ public enum ErrorCode {
     // ===== 模块三：课程与课程成员（3xxx 号段，M3A/M3B 使用）=====
     COURSE_CODE_DUPLICATED(3001, "课程代码已存在"),
     COURSE_NOT_FOUND(3002, "课程不存在或已归档"),
-    COURSE_FORBIDDEN(3003, "无权操作他人的课程");
+    COURSE_FORBIDDEN(3003, "无权操作他人的课程"),
+    COURSE_MEMBER_NOT_FOUND(3004, "课程成员不存在"),
+    COURSE_MEMBER_DUPLICATED(3005, "该学生已在课程成员中");
 
     private final int code;
     private final String message;
