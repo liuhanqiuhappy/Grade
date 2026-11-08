@@ -122,4 +122,39 @@ class CourseServiceImplTest {
         verify(scoreMapper, never()).delete(any());
         verify(courseMapper, never()).deleteById(any(Serializable.class));
     }
+
+    /* ============ H3：半确认（A 班已公布、B 班草稿）不得删/改名 ============ */
+
+    @Test
+    void deleteShouldRejectWhenAnyGroupConfirmed() {
+        // 课程状态仍是 DRAFT，但已有分组确认发布：删课会连已公布成绩一起物理删除
+        when(memberMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.delete(10L, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(3003));
+
+        verify(scoreMapper, never()).delete(any());
+        verify(courseMapper, never()).deleteById(any(Serializable.class));
+    }
+
+    @Test
+    void updateShouldRejectWhenAnyGroupConfirmed() {
+        when(memberMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.update(10L, new CourseRequest("改个名", "2026-2027-1"), 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(3003));
+
+        verify(courseMapper, never()).updateById(any(Course.class));
+    }
+
+    @Test
+    void updateShouldWorkWhenNoGroupConfirmed() {
+        when(memberMapper.selectCount(any())).thenReturn(0L);
+        when(courseMapper.selectOne(any())).thenReturn(null);
+        when(courseMapper.updateById(any(Course.class))).thenReturn(1);
+
+        CourseView view = service.update(10L, new CourseRequest("Java 程序设计（新）", "2026-2027-1"), 1L);
+
+        assertThat(view.name()).isEqualTo("Java 程序设计（新）");
+    }
 }

@@ -80,7 +80,7 @@ class ScoreServiceImplTest {
         when(courseMapper.selectById(10L)).thenReturn(course);
     }
 
-    private CourseMember member(long id, long studentId, long classId, String className, boolean confirmed) {
+    private CourseMember member(long id, long studentId, Long classId, String className, boolean confirmed) {
         CourseMember m = new CourseMember();
         m.setId(id);
         m.setCourseId(10L);
@@ -326,8 +326,7 @@ class ScoreServiceImplTest {
     }
 
     @Test
-    void myScoresShouldReturnScoreForConfirmedGroup() {
-        Student me = student(5L, "2023010101", "李同学");
+    void myScoresShouldReturnScoreForConfirmedGroup() {        Student me = student(5L, "2023010101", "李同学");
         me.setUserId(9L);
         when(studentMapper.selectOne(any())).thenReturn(me);
         when(memberMapper.selectList(any())).thenReturn(List.of(member(1L, 5L, 100L, "计2301", true)));
@@ -344,5 +343,76 @@ class ScoreServiceImplTest {
         assertThat(views).hasSize(1);
         assertThat(views.get(0).published()).isTrue();
         assertThat(views.get(0).score()).isEqualByComparingTo("95");
+    }
+
+    /* ============ M2：已存在行必须回传版本号 ============ */
+
+    @Test
+    void saveScoresShouldRejectNullExpectedVersionWhenRowExistsWith3010() {
+        when(memberMapper.selectList(any())).thenReturn(List.of(member(1L, 5L, 100L, "计2301", false)));
+        when(studentMapper.selectBatchIds(anyCollection()))
+                .thenReturn(List.of(student(5L, "2023010101", "李同学")));
+        Score existing = scoreOf(5L, "70");
+        existing.setId(7L);
+        existing.setVersion(3);
+        when(scoreMapper.selectOne(any())).thenReturn(existing);
+
+        // 客户端漏传版本号时不能放行：否则「不传版本」等于绕过并发保护，可静默覆盖他人成绩
+        ScoreEntryRequest request = new ScoreEntryRequest(List.of(new ScoreEntry(5L, new BigDecimal("99"), null)));
+        assertThatThrownBy(() -> service.saveScores(10L, request, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(3010);
+                    assertThat(e.getMessage()).contains("李同学");
+                });
+        verify(scoreMapper, never()).updateById(any(Score.class));
+    }
+
+    @Test
+    void saveScoresShouldNeverWriteScoreOfConfirmedGroupEvenAfterCourseConfirmed() {
+        course.setStatus(Course.STATUS_CONFIRMED);
+        when(memberMapper.selectList(any()))
+                .thenReturn(List.of(member(1L, 5L, 100L, "计2301", true), member(2L, 6L, 100L, "计2301", true)));
+        when(studentMapper.selectBatchIds(anyCollection()))
+                .thenReturn(List.of(student(5L, "2023010101", "李同学"), student(6L, "2023010102", "王同学")));
+
+        // 整课确认后仍按行跳过（不抛 3003），与 docs/API.md 的 saved/skipped 口径一致
+        ScoreEntryRequest request = new ScoreEntryRequest(List.of(
+                new ScoreEntry(5L, new BigDecimal("1"), null),
+                new ScoreEntry(6L, new BigDecimal("2"), null)));
+        SaveScoresResult result = service.saveScores(10L, request, 1L);
+
+        assertThat(result.saved()).isZero();
+        assertThat(result.skipped()).isEqualTo(2);
+        verify(scoreMapper, never()).updateById(any(Score.class));
+        verify(scoreMapper, never()).insert(any(Score.class));
+    }
+
+    @Test
+    void scoreFieldShouldAlwaysBeWrittenSoClearingPersists() throws Exception {
+        // H2 回归保护：默认 NOT_NULL 策略会让「清空成绩」只更新 version，分数原样留在库里
+        var field = Score.class.getDeclaredField("score");
+        var tableField = field.getAnnotation(com.baomidou.mybatisplus.annotation.TableField.class);
+        assertThat(tableField).isNotNull();
+        assertThat(tableField.updateStrategy())
+                .isEqualTo(com.baomidou.mybatisplus.annotation.FieldStrategy.ALWAYS);
+    }
+
+    @Test
+    void statisticsShouldTolerateMemberWithoutClassSnapshot() {
+        // 历史脏数据的 class_id 快照可能为空：groupingBy 对 null key 会抛 NPE，
+        // 统计接口必须降级成「未分班」而不是 5000
+        when(memberMapper.selectList(any())).thenReturn(List.of(
+                member(1L, 5L, null, null, false),
+                member(2L, 6L, 200L, "计2302", false)));
+        when(studentMapper.selectBatchIds(anyCollection()))
+                .thenReturn(List.of(student(5L, "2023010101", "李同学"), student(6L, "2023010102", "王同学")));
+        when(scoreMapper.selectList(any())).thenReturn(List.of(scoreOf(5L, "90")));
+
+        CourseStatistics stats = service.statistics(10L, 1L);
+
+        assertThat(stats.groups()).hasSize(2);
+        assertThat(stats.groups()).extracting(CourseStatistics.GroupStat::className)
+                .containsExactly("未分班", "计2302");
+        assertThat(stats.groups()).extracting(CourseStatistics.GroupStat::classId).containsNull();
     }
 }

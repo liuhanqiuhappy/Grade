@@ -76,9 +76,8 @@ public class CourseServiceImpl implements CourseService {
     @Override
     public CourseView update(Long id, CourseRequest request, Long teacherId) {
         Course course = requireOwnCourse(id, teacherId);
-        if (Course.STATUS_CONFIRMED.equals(course.getStatus())) {
-            throw new BusinessException(ErrorCode.COURSE_CONFIRMED);
-        }
+        // 课程状态要等「全部分组」确认才升 CONFIRMED，因此必须单独判「已有任一分组确认发布」（H3）
+        requireNotPublished(course);
         requireNameTermUnique(id, request);
         course.setName(request.name().trim());
         course.setTerm(request.term().trim());
@@ -90,12 +89,9 @@ public class CourseServiceImpl implements CourseService {
     @Transactional
     public void delete(Long id, Long teacherId) {
         Course course = requireOwnCourse(id, teacherId);
-        if (Course.STATUS_CONFIRMED.equals(course.getStatus())) {
-            throw new BusinessException(ErrorCode.COURSE_CONFIRMED);
-        }
+        requireNotPublished(course);
         // 删除顺序必须自底向上：score / course_member / notice 都有指向 course 的外键且未设级联，
         // 先删子表再删主表，否则残留行会让 deleteById 撞外键、以 5000 收场。
-        // 注意「分组已确认但课程仍是 DRAFT」的课程允许删除，此时可能已有通知，必须一并清理。
         List<Long> noticeIds = noticeMapper.selectList(new LambdaQueryWrapper<Notice>()
                         .eq(Notice::getCourseId, id))
                 .stream().map(Notice::getId).toList();
@@ -107,6 +103,24 @@ public class CourseServiceImpl implements CourseService {
         scoreMapper.delete(new LambdaQueryWrapper<Score>().eq(Score::getCourseId, id));
         memberMapper.delete(new LambdaQueryWrapper<CourseMember>().eq(CourseMember::getCourseId, id));
         courseMapper.deleteById(id);
+    }
+
+    /**
+     * 课程整体已确认，或**已有任一分组确认发布**时，一律拒绝改名/删除（H3）。
+     * 只看 status 会漏掉「A 班已公布、B 班仍草稿」这种半确认状态：那时删课会连已公布成绩一起物理删除，
+     * 学生端从「已公布」直接变成「没有该课程」，且不可恢复。
+     */
+    private void requireNotPublished(Course course) {
+        if (Course.STATUS_CONFIRMED.equals(course.getStatus()) || hasConfirmedGroup(course.getId())) {
+            throw new BusinessException(ErrorCode.COURSE_CONFIRMED);
+        }
+    }
+
+    /** 是否存在已确认发布的班级分组（course_member.group_confirmed = 1）。 */
+    public boolean hasConfirmedGroup(Long courseId) {
+        return memberMapper.selectCount(new LambdaQueryWrapper<CourseMember>()
+                .eq(CourseMember::getCourseId, courseId)
+                .eq(CourseMember::getGroupConfirmed, true)) > 0;
     }
 
     /** 内部按 ID 取课程（不做归属校验，供成绩等子域复用）。 */

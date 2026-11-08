@@ -42,7 +42,8 @@ public class CourseMemberController {
                                                  HttpSession session) {
         Long teacherId = SessionUser.requireTeacher(session).getUserId();
         MemberAddResult result = memberService.addMembers(courseId, request.studentIds(), teacherId);
-        return ApiResponse.ok(Map.of("added", result.added(), "skipped", result.skipped()));
+        return ApiResponse.ok(Map.of("added", result.added(), "skipped", result.skipped(),
+                "skippedConfirmed", result.skippedConfirmed()));
     }
 
     @DeleteMapping("/{studentId}")

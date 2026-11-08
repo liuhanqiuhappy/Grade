@@ -81,9 +81,16 @@ public class CourseMemberServiceImpl implements CourseMemberService {
         List<CourseMember> existing = memberMapper.selectList(
                 new LambdaQueryWrapper<CourseMember>().eq(CourseMember::getCourseId, courseId));
         Set<Long> existingIds = existing.stream().map(CourseMember::getStudentId).collect(Collectors.toSet());
+        // 已确认发布的分组不再接受新成员（M3）：否则新行 group_confirmed=false 会把整组状态从「已公布」
+        // 回退成「草稿」，同组其他学生显示已公布、本人显示未公布，确认结果的稳定性被破坏。
+        Set<Long> confirmedClassIds = existing.stream()
+                .filter(m -> Boolean.TRUE.equals(m.getGroupConfirmed()) && m.getClassId() != null)
+                .map(CourseMember::getClassId)
+                .collect(Collectors.toSet());
 
         int added = 0;
         int skipped = 0;
+        int skippedConfirmed = 0;
         for (Long studentId : studentIds.stream().distinct().toList()) {
             // §6-3b：已在课程中的成员只跳过并计数，不再让整批加入失败
             if (existingIds.contains(studentId)) {
@@ -94,6 +101,11 @@ public class CourseMemberServiceImpl implements CourseMemberService {
             if (student == null) {
                 throw new BusinessException(ErrorCode.STUDENT_NOT_FOUND,
                         ErrorCode.STUDENT_NOT_FOUND.getMessage() + "（studentId=" + studentId + "）");
+            }
+            if (student.getClassId() != null && confirmedClassIds.contains(student.getClassId())) {
+                skipped++;
+                skippedConfirmed++;
+                continue;
             }
             CourseMember member = new CourseMember();
             member.setCourseId(courseId);
@@ -107,7 +119,7 @@ public class CourseMemberServiceImpl implements CourseMemberService {
             existingIds.add(studentId);
             added++;
         }
-        return new MemberAddResult(added, skipped);
+        return new MemberAddResult(added, skipped, skippedConfirmed);
     }
 
     @Override

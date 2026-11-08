@@ -168,4 +168,55 @@ class CourseMemberServiceImplTest {
         verify(memberMapper).deleteById(1L);
         verify(scoreMapper).delete(any());
     }
+
+    /* ============ M3：已确认分组不再接受新成员 ============ */
+
+    @Test
+    void addMembersShouldSkipStudentOfConfirmedGroupAndReportSkippedConfirmed() {
+        CourseMember confirmed = new CourseMember();
+        confirmed.setId(1L);
+        confirmed.setCourseId(10L);
+        confirmed.setStudentId(5L);
+        confirmed.setClassId(100L);
+        confirmed.setGroupConfirmed(true);
+        when(memberMapper.selectList(any())).thenReturn(List.of(confirmed));
+
+        Student newbie = new Student();
+        newbie.setId(7L);
+        newbie.setStudentNo("2023010103");
+        newbie.setName("赵同学");
+        newbie.setClassId(100L); // 与已确认分组同班
+        when(studentMapper.selectById(7L)).thenReturn(newbie);
+
+        // 加进已公布的分组会让整组状态从「已公布」回退成「草稿」，因此跳过并计数
+        MemberAddResult result = service.addMembers(10L, List.of(7L), 1L);
+
+        assertThat(result.added()).isZero();
+        assertThat(result.skipped()).isEqualTo(1);
+        assertThat(result.skippedConfirmed()).isEqualTo(1);
+        verify(memberMapper, never()).insert(any(CourseMember.class));
+    }
+
+    @Test
+    void addMembersShouldStillAcceptStudentOfUnconfirmedGroup() {
+        CourseMember confirmed = new CourseMember();
+        confirmed.setId(1L);
+        confirmed.setCourseId(10L);
+        confirmed.setStudentId(5L);
+        confirmed.setClassId(100L);
+        confirmed.setGroupConfirmed(true);
+        when(memberMapper.selectList(any())).thenReturn(List.of(confirmed));
+
+        Student other = new Student();
+        other.setId(8L);
+        other.setStudentNo("2023010104");
+        other.setName("钱同学");
+        other.setClassId(200L); // 另一个班，未确认
+        when(studentMapper.selectById(8L)).thenReturn(other);
+
+        MemberAddResult result = service.addMembers(10L, List.of(8L), 1L);
+
+        assertThat(result.added()).isEqualTo(1);
+        assertThat(result.skippedConfirmed()).isZero();
+    }
 }

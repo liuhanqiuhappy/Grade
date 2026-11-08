@@ -224,4 +224,107 @@ class StudentServiceImplTest {
         assertThatThrownBy(() -> service.resetPassword(404L, 1L))
                 .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(2004));
     }
+
+    /* ============ M4：改学号/姓名同步登录账号 ============ */
+
+    @Test
+    void updateShouldSyncAccountUsernameAndDisplayName() {
+        Student entity = studentWith(5L, 9L);
+        when(studentMapper.selectById(5L)).thenReturn(entity);
+        User account = new User();
+        account.setId(9L);
+        account.setUsername("2023010101");
+        account.setDisplayName("李同学");
+        account.setRole(User.ROLE_STUDENT);
+        when(userMapper.selectById(9L)).thenReturn(account);
+        when(userMapper.findByUsername("2023010199")).thenReturn(null);
+
+        service.update(5L, new StudentRequest("2023010199", "李同学改", "男", 100L));
+
+        // 账号即学号：档案改了账号必须跟着改，否则旧学号还能登录、新学号找不到账号
+        assertThat(account.getUsername()).isEqualTo("2023010199");
+        assertThat(account.getDisplayName()).isEqualTo("李同学改");
+        verify(userMapper).updateById(account);
+    }
+
+    @Test
+    void updateShouldRejectWhenNewStudentNoTakenByAnotherAccountWith2005() {
+        Student entity = studentWith(5L, 9L);
+        when(studentMapper.selectById(5L)).thenReturn(entity);
+        User account = new User();
+        account.setId(9L);
+        account.setUsername("2023010101");
+        account.setRole(User.ROLE_STUDENT);
+        when(userMapper.selectById(9L)).thenReturn(account);
+        User conflict = new User();
+        conflict.setId(10L);
+        conflict.setUsername("2023010199");
+        when(userMapper.findByUsername("2023010199")).thenReturn(conflict);
+
+        assertThatThrownBy(() -> service.update(5L, new StudentRequest("2023010199", "李同学", "男", 100L)))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(2005));
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
+    void updateShouldNotTouchTeacherAccountEvenIfBoundByMistake() {
+        Student entity = studentWith(5L, 9L);
+        when(studentMapper.selectById(5L)).thenReturn(entity);
+        User teacher = new User();
+        teacher.setId(9L);
+        teacher.setUsername("teacher01");
+        teacher.setRole(User.ROLE_TEACHER);
+        when(userMapper.selectById(9L)).thenReturn(teacher);
+
+        service.update(5L, new StudentRequest("2023010199", "李同学", "男", 100L));
+
+        // 绑定关系异常时不能顺手改教师账号的用户名
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    /* ============ L2：全部行非法也要给失败清单 ============ */
+
+    @Test
+    void importExcelShouldReportFailuresInsteadOfParseErrorWhenEveryRowInvalid() throws Exception {
+        when(studentMapper.selectCount(any())).thenReturn(1L); // 两行学号都已存在
+        byte[] bytes = xlsxBytes(new String[][]{
+                {"学号", "姓名", "性别"},
+                {"2023010101", "重复一", "男"},
+                {"2023010102", "重复二", "女"}});
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "students.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+
+        var result = service.importExcel(100L, file);
+
+        assertThat(result.successCount()).isZero();
+        assertThat(result.failures()).hasSize(2);
+        assertThat(result.failures()).extracting(r -> r.row()).containsExactly(2, 3);
+    }
+
+    @Test
+    void importExcelShouldRejectEmptyFileWith2006() throws Exception {
+        byte[] bytes = xlsxBytes(new String[][]{{"学号", "姓名", "性别"}});
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "students.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+
+        assertThatThrownBy(() -> service.importExcel(100L, file))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(2006));
+    }
+
+    private byte[] xlsxBytes(String[][] rows) throws Exception {
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             var out = new java.io.ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("s");
+            for (int i = 0; i < rows.length; i++) {
+                var row = sheet.createRow(i);
+                for (int j = 0; j < rows[i].length; j++) {
+                    row.createCell(j).setCellValue(rows[i][j]);
+                }
+            }
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
 }

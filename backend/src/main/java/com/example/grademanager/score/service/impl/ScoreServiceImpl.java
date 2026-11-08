@@ -97,10 +97,9 @@ public class ScoreServiceImpl implements ScoreService {
     @Override
     @Transactional
     public SaveScoresResult saveScores(Long courseId, ScoreEntryRequest request, Long teacherId) {
-        Course course = courseService.requireOwnCourse(courseId, teacherId);
-        if (Course.STATUS_CONFIRMED.equals(course.getStatus())) {
-            throw new BusinessException(ErrorCode.COURSE_CONFIRMED);
-        }
+        courseService.requireOwnCourse(courseId, teacherId);
+        // 课程整体 CONFIRMED 时不再整批拒绝：确认粒度是「课程+班级」，
+        // 已确认分组的行按行跳过（下方 continue），未确认分组的行照常保存，与 docs/API.md 一致。
         Map<Long, CourseMember> memberMap = members(courseId).stream()
                 .collect(Collectors.toMap(CourseMember::getStudentId, Function.identity(), (a, b) -> a));
         Map<Long, Student> studentMap = studentsByIds(
@@ -146,8 +145,12 @@ public class ScoreServiceImpl implements ScoreService {
                 }
             } else {
                 // §6-4e：先比客户端读取时的版本，挡住「陈旧页面覆盖」（毫秒级真并发由 @Version 兜底）
-                if (entry.expectedVersion() != null
-                        && !entry.expectedVersion().equals(existing.getVersion())) {
+                // 该行已存在却没回传版本号时不能放行：否则客户端只要漏传/不传版本就能静默覆盖他人成绩（M2）
+                if (entry.expectedVersion() == null) {
+                    throw new BusinessException(ErrorCode.SCORE_CONFLICT,
+                            who + " 的成绩已存在，请刷新页面后按最新版本重新提交");
+                }
+                if (!entry.expectedVersion().equals(existing.getVersion())) {
                     throw new BusinessException(ErrorCode.SCORE_CONFLICT,
                             who + " 的成绩已被他人修改，请刷新后重试");
                 }
@@ -237,9 +240,12 @@ public class ScoreServiceImpl implements ScoreService {
         long failed = rows.stream().filter(r -> isFailed(r.score())).count();
 
         // 按快照 classId 分组：classId 是「课程+班级」确认粒度的稳定标识，className 只用于展示
-        Map<Long, List<ScoreView>> byClass = rows.stream().collect(Collectors.groupingBy(
-                r -> classIdOf(memberMap.get(r.studentId())),
-                LinkedHashMap::new, Collectors.toList()));
+        // 注意不能用 Collectors.groupingBy：它对 null key 会抛 NPE，而历史脏数据的快照可能为 null
+        Map<Long, List<ScoreView>> byClass = new LinkedHashMap<>();
+        for (ScoreView row : rows) {
+            byClass.computeIfAbsent(classIdOf(memberMap.get(row.studentId())), k -> new ArrayList<>())
+                    .add(row);
+        }
 
         List<CourseStatistics.GroupStat> groups = byClass.entrySet().stream()
                 .map(e -> {

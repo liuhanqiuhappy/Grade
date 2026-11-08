@@ -107,23 +107,53 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
+    @Transactional
     public StudentView update(Long id, StudentRequest request) {
         Student entity = studentMapper.selectById(id);
         if (entity == null) {
             throw new BusinessException(ErrorCode.STUDENT_NOT_FOUND);
         }
         requireClass(request.classId());
-        requireStudentNoUnique(id, request.studentNo());
-        entity.setStudentNo(request.studentNo().trim());
-        entity.setName(request.name().trim());
+        String newNo = request.studentNo().trim();
+        String newName = request.name().trim();
+        requireStudentNoUnique(id, newNo);
+        boolean noChanged = !newNo.equals(entity.getStudentNo());
+        boolean nameChanged = !newName.equals(entity.getName());
+        entity.setStudentNo(newNo);
+        entity.setName(newName);
         entity.setGender(normalizeGender(request.gender()));
         entity.setClassId(request.classId());
         studentMapper.updateById(entity);
         // 历史数据可能没有绑定账号，补一次绑定
         if (entity.getUserId() == null) {
             bindAccount(entity);
+        } else if (noChanged || nameChanged) {
+            // 账号 = 学号 是全局约定：改档案必须同步登录账号，否则学生用旧学号能登录、教师按新学号找不到（M4）
+            syncAccount(entity, noChanged);
         }
         return toView(entity);
+    }
+
+    /**
+     * 把档案上的学号/姓名同步到绑定的学生账号。
+     * 学号变更前先做账号唯一性校验，冲突返回 2005（整个事务回滚，档案与账号都不变）。
+     */
+    private void syncAccount(Student entity, boolean usernameChanged) {
+        User user = userMapper.selectById(entity.getUserId());
+        if (user == null || !User.ROLE_STUDENT.equals(user.getRole())) {
+            // 绑定指向的账号异常（被删或不是学生角色）时不动它，避免越权改写教师账号
+            return;
+        }
+        if (usernameChanged) {
+            User conflict = userMapper.findByUsername(entity.getStudentNo());
+            if (conflict != null && !conflict.getId().equals(user.getId())) {
+                throw new BusinessException(ErrorCode.STUDENT_NO_DUP,
+                        "学号 " + entity.getStudentNo() + " 已被其他登录账号占用，请换一个学号");
+            }
+            user.setUsername(entity.getStudentNo());
+        }
+        user.setDisplayName(entity.getName());
+        userMapper.updateById(user);
     }
 
     @Override
@@ -180,6 +210,9 @@ public class StudentServiceImpl implements StudentService {
                 if (no.isBlank() && name.isBlank()) {
                     continue;
                 }
+                // 只要读到过数据行就按「逐行汇报」处理：即使整表都不合法，也要把失败原因回给教师（L2），
+                // 而不是抛 2006「没有可导入的数据行」让人无从下手
+                hasDataRow = true;
                 if (no.isBlank() || name.isBlank()) {
                     failures.add(new ImportResult.RowError(excelRow, "学号与姓名均不能为空"));
                     continue;
@@ -199,7 +232,6 @@ public class StudentServiceImpl implements StudentService {
                             "性别只能是「男」或「女」，当前值: " + gender));
                     continue;
                 }
-                hasDataRow = true;
                 Student s = new Student();
                 s.setStudentNo(no);
                 s.setName(name);

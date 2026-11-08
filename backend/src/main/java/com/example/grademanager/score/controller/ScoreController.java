@@ -82,7 +82,8 @@ public class ScoreController {
 
     @GetMapping("/my/scores")
     public ApiResponse<List<MyScoreView>> myScores(HttpSession session) {
-        SessionUser current = SessionUser.require(session);
+        // 学生自助接口：教师访问一律 1003，不能用「查不到档案返回空列表」兜底
+        SessionUser current = SessionUser.requireStudent(session);
         return ApiResponse.ok(scoreService.myScores(current.getUserId()));
     }
 }

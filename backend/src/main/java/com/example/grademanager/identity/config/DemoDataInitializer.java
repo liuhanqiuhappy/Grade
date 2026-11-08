@@ -44,7 +44,8 @@ public class DemoDataInitializer implements ApplicationRunner {
             return;
         }
         User teacher = newUser("teacher01", "张老师", User.ROLE_TEACHER);
-        User student = newUser("student01", "李同学", User.ROLE_STUDENT);
+        // 学生账号即学号：与 StudentServiceImpl.bindAccount() 的规则保持一致
+        User student = newUser("2023010101", "李同学", User.ROLE_STUDENT);
         userMapper.insert(teacher);
         userMapper.insert(student);
 
@@ -67,7 +68,7 @@ public class DemoDataInitializer implements ApplicationRunner {
         course.setStatus(Course.STATUS_DRAFT);
         courseMapper.insert(course);
 
-        log.info("演示数据初始化完成：teacher01/student01（口令 pass1234）、示例班级与学生、示例课程");
+        log.info("演示数据初始化完成：教师 teacher01 / 学生 2023010101（学号即账号，口令 pass1234）、示例班级与学生、示例课程");
     }
 
     private User newUser(String username, String displayName, String role) {
