@@ -3,37 +3,27 @@
 ## 项目概况
 
 - **项目名称**：高校学生成绩管理系统（Java Web 课程作业）
-- **架构**：前后端分离。前端 `frontend/`（Vue 3 + Vite），后端 `backend/`（Spring Boot 3 + MySQL），**所有业务数据与数据处理都在后端**
-- **当前任务**：实验一（登录/退出）后端已实现并自测通过（`mvn test` 11 用例）；前端已实现登录页与「记住密码」复选框，进入前后端联调与验收阶段。**注册功能已整体移除**（契约 v0.4）：接口、注册页、路由、DTO、错误码 1004 与相关测试均已删除，账号由种子数据/管理员创建
-- **开发模式**：契约先行，前后端并行
-- **契约版本**：`docs/API_CONTRACT.md` v0.4（移除注册 + §3.8「记住密码」纯前端约定）
+- **架构**：前后端分离。前端 `frontend/`（Vue 3 + Vite + Pinia），后端 `backend/`（Spring Boot 3 + MyBatis-Plus + Flyway + MySQL），**所有业务数据与数据处理都在后端**
+- **状态**：2026-11 项目已整体重构（覆盖式重写），旧代码与旧契约文档全部删除，按新接口说明 `docs/API.md` 全新实现四个模块：身份认证、班级与学生（含 Excel 导入）、课程与成员、成绩录入与确认
+- **注册功能不存在**：账号由演示数据初始化器创建（`teacher01/student01`，口令 `pass1234`）
 
 ## 必须先读的文件
 
-| 顺序 | 文件 | 作用 |
-| --- | --- | --- |
-| 1 | `docs/API_CONTRACT.md` | **接口唯一真相源**：通用约定、错误码表、接口定义、数据归属纪律 |
-| 2 | `docs/openapi.json` | 机器可读契约，导入 Apifox 查看/调试/Mock |
-| 3 | `frontend/CODEBUDDY.md` | 前端技术栈、现有代码盘点、改造清单、纪律 |
-| 4 | `backend/CODEBUDDY.md` | 后端技术栈、需实现的接口、统一响应与异常规范 |
+| 文件 | 作用 |
+| --- | --- |
+| `docs/API.md` | 接口唯一真相源：统一响应、错误码表、接口定义 |
+| `README.md` | 项目概况、快速启动、约定 |
 
 ## 铁律
 
-1. **改接口先改契约**：`docs/API_CONTRACT.md` 与 `docs/openapi.json` 同步更新，再改代码。禁止单边改字段。
-2. **前端不产生业务数据，只展示和提交**：账号、凭据校验、会话全部在后端。
-3. **统一响应** `{code, message, data}`，`code=0` 成功；业务失败也返回 HTTP 200。
-4. **认证用 Session + Cookie**，开发期前端经 Vite 代理访问 `/api`，后端不放开 CORS。
-5. **不考虑样式**：本阶段只做功能与状态流转。
-6. **「记住密码」是前端本地行为**（契约 §3.8）：不新增接口字段、不改会话时长；只写 `localStorage`，登录校验仍全程走后端。
+1. 改接口先改 `docs/API.md`，再改代码。
+2. 统一响应 `{code, message, data}`，`code=0` 成功；业务失败也返回 HTTP 200（`BusinessException` + `GlobalExceptionHandler`）。
+3. 认证用 Session + Cookie；身份只从 Session 判定（`SessionUser.requireTeacher`）；开发期前端经 Vite 代理访问 `/api`，后端不开 CORS。
+4. 数据库密码走环境变量 `DB_PASSWORD`，禁止写进配置文件。
+5. 表结构变更一律新增 `backend/src/main/resources/db/migration/V{n}__xxx.sql`，不改已执行过的脚本。
 
 ## 本地环境
 
-- 后端 `http://localhost:8080`（Maven 启动；探活 `GET /api/ping`）
+- 后端 `http://localhost:8080`（探活 `GET /api/ping`）
 - 前端 `http://localhost:5173`（`npm run dev`）
-- 数据库密码走环境变量 `DB_PASSWORD`，禁止写进配置文件
-
-## 其他文档
-
-- `docs/联调测试与验收指南.md`：启动步骤、测试用例 TC-01～TC-12、冒烟脚本、Apifox 联调、验收对照、已知风险
-- `【实验一】用户故事与验收要求.md`：课程原始需求与验收标准
-- `前端开发启动说明.md`：VS Code + CodeBuddy + Apifox 的操作步骤
+- 后端测试（不依赖 MySQL）：`mvn test`

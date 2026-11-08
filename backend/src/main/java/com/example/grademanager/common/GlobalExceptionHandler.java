@@ -1,66 +1,42 @@
 package com.example.grademanager.common;
 
-import jakarta.validation.ConstraintViolationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.context.support.DefaultMessageSourceResolvable;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.BindException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
-import java.util.Objects;
-
-/**
- * 全局异常处理：业务失败同样返回 HTTP 200，用 code 区分（契约 §1.2）。
- */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-
+    /** 业务异常：HTTP 200 + 业务错误码。 */
     @ExceptionHandler(BusinessException.class)
-    public ApiResponse<Void> handleBusiness(BusinessException ex) {
-        return ApiResponse.fail(ex.getCode(), ex.getMessage());
+    public ApiResponse<Void> handleBusiness(BusinessException e) {
+        return ApiResponse.fail(e.getCode(), e.getMessage());
     }
 
-    /** @Valid 校验请求体失败 → 4001，message 直接指出字段问题 */
+    /** 参数校验失败：统一转 4001，message 指出首个非法字段。 */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ApiResponse<Void> handleInvalidBody(MethodArgumentNotValidException ex) {
-        String message = ex.getBindingResult().getFieldErrors().stream()
-                .map(DefaultMessageSourceResolvable::getDefaultMessage)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(ErrorCode.PARAM_INVALID.getMessage());
-        return ApiResponse.fail(ErrorCode.PARAM_INVALID.getCode(), message);
+    public ApiResponse<Void> handleValidation(MethodArgumentNotValidException e) {
+        String message = ErrorCode.INVALID_PARAM.getMessage();
+        if (e.getBindingResult().getFieldError() != null) {
+            var fe = e.getBindingResult().getFieldError();
+            message = fe.getField() + ": " + fe.getDefaultMessage();
+        }
+        return ApiResponse.fail(ErrorCode.INVALID_PARAM.getCode(), message);
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ApiResponse<Void> handleConstraintViolation(ConstraintViolationException ex) {
-        String message = ex.getConstraintViolations().stream()
-                .map(jakarta.validation.ConstraintViolation::getMessage)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(ErrorCode.PARAM_INVALID.getMessage());
-        return ApiResponse.fail(ErrorCode.PARAM_INVALID.getCode(), message);
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ApiResponse<Void> handleUpload(MaxUploadSizeExceededException e) {
+        return ApiResponse.fail(ErrorCode.IMPORT_PARSE_FAIL.getCode(), "上传文件过大（限 5MB）");
     }
 
-    @ExceptionHandler({BindException.class, HttpMessageNotReadableException.class,
-            MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
-    public ApiResponse<Void> handleBadRequest(Exception ex) {
-        return ApiResponse.fail(ErrorCode.PARAM_INVALID.getCode(), "请求参数格式不正确");
-    }
-
-    /**
-     * 兜底：只捕获运行时异常，检查型异常（如 404 NoResourceFoundException）交给 Spring 默认处理，
-     * 避免把「路径写错」伪装成业务成功。
-     */
-    @ExceptionHandler(RuntimeException.class)
-    public ApiResponse<Void> handleUnexpected(RuntimeException ex) {
-        log.error("未处理异常", ex);
-        return ApiResponse.fail(ErrorCode.INTERNAL_ERROR);
+    /** 兜底：未知异常转 5000，记录完整堆栈但不暴露内部细节。 */
+    @ExceptionHandler(Exception.class)
+    public ApiResponse<Void> handleUnknown(Exception e) {
+        log.error("未处理异常", e);
+        return ApiResponse.fail(ErrorCode.SYS_ERROR);
     }
 }

@@ -7,15 +7,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/**
- * 契约 §3.1：探活，不需要登录。
- */
 @RestController
 @RequestMapping("/api")
 public class PingController {
 
+    /** 探活接口，无需登录。 */
     @GetMapping("/ping")
     public ApiResponse<Map<String, String>> ping() {
-        return ApiResponse.ok(Map.of("status", "ok"));
+        return ApiResponse.ok(Map.of("service", "grade-manager-backend", "status", "UP"));
     }
 }

@@ -1,102 +1,134 @@
 <template>
-  <div class="container vh-100 d-flex align-items-center justify-content-center">
-    <div class="card shadow p-4" style="width: 420px;">
-      <h2 class="text-center mb-4">登录</h2>
-
-      <!-- 业务失败提示：直接展示后端 message（契约 §5.4） -->
-      <div v-if="errorMessage" class="alert alert-danger py-2">{{ errorMessage }}</div>
-
-      <form @submit.prevent="onSubmit">
-        <div class="mb-3">
-          <label class="form-label">账号</label>
-          <input v-model="form.username" type="text" class="form-control" placeholder="输入账号"
-                 :disabled="loading"/>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">密码</label>
-          <input v-model="form.password" type="password" class="form-control" placeholder="输入密码"
-                 :disabled="loading"/>
-        </div>
-
-        <div class="form-check mb-2">
-          <input id="rememberPassword" v-model="remember" class="form-check-input" type="checkbox"
-                 :disabled="loading"/>
-          <label class="form-check-label" for="rememberPassword">记住密码</label>
-        </div>
-        <div class="form-text mb-3">勾选后在本机保留账号密码，仅限个人设备；公共电脑请勿勾选。</div>
-
-        <button class="btn btn-primary w-100" type="submit" :disabled="loading">
-          {{ loading ? "登录中，请稍候..." : "登录" }}
-        </button>
-      </form>
+  <div>
+    <div class="login-top">
+      <span class="logo" style="width: 40px; height: 40px"><Icon name="school" /></span>
+      <div>
+        <h1 style="font-size: 16px; font-weight: 600; color: #0f172a">高校学生成绩管理系统</h1>
+        <p style="font-size: 12px; color: #64748b">登录 · 角色由服务端判定</p>
+      </div>
     </div>
+
+    <main style="display: flex; justify-content: center; padding: 36px 24px 48px">
+      <section class="card" style="width: 420px; padding: 28px 28px 24px">
+        <h2 style="font-size: 20px; font-weight: 600; color: #0f172a">登录</h2>
+        <p style="font-size: 12px; color: #64748b; margin-top: 4px">
+          角色由服务端判定，页面不自称身份；登录后按角色分流到对应首任务页。
+        </p>
+
+        <form @submit.prevent="onSubmit">
+          <div style="margin-top: 22px">
+            <label class="label" for="username">账号（登录名）</label>
+            <input
+              id="username"
+              v-model.trim="username"
+              class="input"
+              :class="{ err: fieldError.username }"
+              type="text"
+              placeholder="请输入登录名"
+              autocomplete="username"
+            />
+            <p v-if="fieldError.username" class="hint err">{{ fieldError.username }}</p>
+          </div>
+
+          <div style="margin-top: 16px">
+            <label class="label" for="password">口令</label>
+            <input
+              id="password"
+              v-model="password"
+              class="input"
+              :class="{ err: fieldError.password }"
+              type="password"
+              placeholder="请输入口令"
+              autocomplete="current-password"
+            />
+            <p v-if="fieldError.password" class="hint err">{{ fieldError.password }}</p>
+          </div>
+
+          <label class="row-flex mt-12" style="font-size: 13px; color: #475569; cursor: pointer">
+            <input v-model="remember" type="checkbox" />
+            记住密码
+            <span class="muted">（仅限个人设备：只存本机浏览器，仍由后端校验）</span>
+          </label>
+
+          <div v-if="error" class="banner b-rose mt-12">
+            <Icon name="alert" />
+            <span>{{ error }}</span>
+          </div>
+
+          <button class="btn btn-p" style="width: 100%; margin-top: 20px; height: 40px" :disabled="loading">
+            <Icon name="lock" /> {{ loading ? '登录中…' : '登录' }}
+          </button>
+        </form>
+
+        <p style="font-size: 11px; color: #94a3b8; margin-top: 14px; text-align: center">
+          登录遇到问题？请联系教学管理员重置凭据。
+        </p>
+      </section>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { login } from '@/api/identity'
-import { useIdentityStore } from '@/store/useIdentity'
-import { loadCredential, saveCredential, clearCredential } from '@/utils/rememberedCredential'
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import Icon from '../components/Icon.vue'
+import { useIdentityStore } from '../store/identity'
+import { rememberedCredential } from '../utils/rememberedCredential'
 
+const route = useRoute()
 const router = useRouter()
-const identityStore = useIdentityStore()
+const store = useIdentityStore()
 
-const form = ref({
-  username: "",
-  password: ""
-})
+const username = ref('')
+const password = ref('')
 const remember = ref(false)
+const error = ref('')
 const loading = ref(false)
-const errorMessage = ref("")
+const fieldError = reactive({ username: '', password: '' })
 
 onMounted(() => {
-  // 有本地记住的凭据则回填账号密码并自动勾选
-  const saved = loadCredential()
+  const saved = rememberedCredential.get()
   if (saved) {
-    form.value.username = saved.username
-    form.value.password = saved.password
+    username.value = saved.username
+    password.value = saved.password
     remember.value = true
   }
 })
 
-const onSubmit = async ()=>{
-  errorMessage.value = ""
+function validate() {
+  fieldError.username = username.value ? '' : '账号不能为空'
+  fieldError.password = password.value ? '' : '口令不能为空'
+  return !fieldError.username && !fieldError.password
+}
 
-  const username = form.value.username?.trim() || ""
-  const password = form.value.password || ""
-
-  // 前端先拦一遍，缺失字段直接指出（后端同样会返回 4001 兜底）
-  if(!username){
-    errorMessage.value = "用户名不能为空"
-    return
-  }
-  if(!password){
-    errorMessage.value = "密码不能为空"
-    return
-  }
-
+async function onSubmit() {
+  error.value = ''
+  if (!validate()) return
   loading.value = true
-  try{
-    // 契约 §3.2：请求体只有 username/password，不带 remember 字段
-    const res = await login({ username, password })
-    identityStore.setUser(res.data)
-
-    // 契约 §3.8：只有「勾选 + 登录成功」才写本地凭据；未勾选则清掉旧记录
+  try {
+    await store.login(username.value, password.value)
     if (remember.value) {
-      saveCredential(username, password)
+      rememberedCredential.save(username.value, password.value)
     } else {
-      clearCredential()
+      rememberedCredential.clear()
     }
-
-    // 按角色跳转：教师进班级/学生管理，学生进欢迎页（学生无班级菜单）
-    router.push(identityStore.role === 'TEACHER' ? '/app/classes' : '/welcome')
-  }catch(e){
-    // e 是后端响应体 {code, message, data}；1001 与 4001 都直接展示 message
-    errorMessage.value = e?.message || "登录失败，请稍后重试"
-  }finally {
+    const target = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    router.replace(target)
+  } catch (e) {
+    error.value = e.message || '登录失败，请稍后重试'
+  } finally {
     loading.value = false
   }
 }
 </script>
+
+<style scoped>
+.login-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 24px 0;
+}
+</style>

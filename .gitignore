@@ -40,3 +40,7 @@ desktop.ini
 # ---- 日志 ----
 *.log
 logs/
+edge.out
+
+# ---- 临时文件 ----
+untitled

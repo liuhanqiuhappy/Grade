@@ -1,66 +1,114 @@
 <template>
-  <!-- 模块二/后续模块的导航壳（仅 TEACHER 可见，守卫在路由 meta.requiresTeacher 判定） -->
   <div>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-3">
-      <div class="container-fluid">
-        <span class="navbar-brand">成绩管理系统</span>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain"
-                aria-controls="navMain" aria-expanded="false" aria-label="切换导航">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navMain">
-          <ul class="navbar-nav me-auto">
-            <!-- ===== 模块二：班级与学生 ===== -->
-            <li class="nav-item">
-              <router-link class="nav-link" :class="{ active: isActive('/app/classes') }" to="/app/classes">班级管理</router-link>
-            </li>
-            <li class="nav-item">
-              <router-link class="nav-link" :class="{ active: isActive('/app/students') }" to="/app/students">学生查询</router-link>
-            </li>
-          </ul>
-          <div class="d-flex align-items-center text-white">
-            <span class="me-3">
-              {{ identityStore.displayName || identityStore.username }}
-              <span class="badge bg-light text-primary ms-1">{{ roleLabel }}</span>
-            </span>
-            <button class="btn btn-outline-light btn-sm" @click="handleLogout">退出登录</button>
+    <header class="hdr">
+      <div class="hdr-in">
+        <div class="brand">
+          <span class="logo"><Icon name="school" /></span>
+          <div>
+            <h1>高校学生成绩管理系统</h1>
+            <p>{{ store.isTeacher ? '教师端' : '学生端' }}</p>
           </div>
         </div>
-      </div>
-    </nav>
 
-    <div class="container-fluid">
-      <router-view></router-view>
+        <nav class="nav">
+          <router-link
+            v-for="item in navItems"
+            :key="item.label"
+            :to="item.to"
+            :class="{ on: item.active }"
+          >{{ item.label }}</router-link>
+        </nav>
+
+        <div class="hdr-right">
+          <span v-if="ctx.hasCourse" class="hchip cur" :title="ctx.label">
+            <Icon name="book" /> 当前课程：{{ ctx.name }}
+          </span>
+          <span class="hchip">
+            <Icon name="account" /> {{ store.displayName }}
+            <span class="rolechip" :class="store.isTeacher ? 'role-t' : 'role-s'">
+              {{ store.isTeacher ? '教师' : '学生' }}
+            </span>
+          </span>
+          <button class="btn-exit" type="button" @click="onLogout">
+            <Icon name="exit" /> 退出
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div v-if="offline" class="banner b-rose mt-12">
+        <Icon name="alert" />
+        <span>
+          <b>无法连接后端服务（localhost:8080）。</b>
+          页面已加载，但登录与数据请求都会失败。请先启动后端：在 <code>backend/</code> 下设置
+          <code>DB_PASSWORD</code> 后执行 <code>mvn spring-boot:run</code>。
+        </span>
+        <button class="btn btn-o btn-sm ml-auto" @click="checkBackend">重试</button>
+      </div>
+      <router-view />
+    </main>
+
+    <div class="toast">
+      <div v-for="t in toasts" :key="t.id" class="t">
+        <Icon :name="t.type === 'error' ? 'alert' : 'check-circle'" :style="{ color: t.type === 'error' ? '#e11d48' : '#059669' }" />
+        <div>
+          <div class="tt">{{ t.title }}</div>
+          <div v-if="t.detail" class="td">{{ t.detail }}</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useIdentityStore } from '@/store/useIdentity'
-import { logout } from '@/api/identity'
+import Icon from '../components/Icon.vue'
+import { useIdentityStore } from '../store/identity'
+import { useCourseContextStore } from '../store/courseContext'
+import { useToast } from '../composables/useToast'
+import { ping } from '../api/identity'
 
-const identityStore = useIdentityStore()
 const route = useRoute()
 const router = useRouter()
+const store = useIdentityStore()
+const ctx = useCourseContextStore()
+const { toasts } = useToast()
 
-const roleLabel = computed(() =>
-  identityStore.role === 'TEACHER' ? '教师' : identityStore.role === 'STUDENT' ? '学生' : ''
-)
+const offline = ref(false)
 
-// 高亮当前导航（考虑子路由前缀匹配）
-function isActive(prefix) {
-  return route.path === prefix || route.path.startsWith(prefix + '/')
-}
-
-const handleLogout = async () => {
-  try {
-    await logout()
-  } catch (e) {
-    // 退出幂等，失败也继续清空本地态
+const navItems = computed(() => {
+  if (!store.isTeacher) {
+    return [{ label: '我的成绩', to: '/my-scores', active: route.name === 'my-scores' }]
   }
-  identityStore.clearUser()
-  router.replace('/login')
+  const id = ctx.id
+  return [
+    { label: '我的课程', to: '/courses', active: route.name === 'courses' },
+    { label: '共享目录', to: '/catalog', active: route.name === 'catalog' },
+    { label: '课程成员', to: id ? `/courses/${id}/members` : '/courses', active: route.name === 'course-members' },
+    { label: '成绩录入', to: id ? `/courses/${id}/scores` : '/courses', active: route.name === 'score-entry' },
+    { label: '确认与统计', to: id ? `/courses/${id}/confirm` : '/courses', active: route.name === 'confirm-stats' }
+  ]
+})
+
+async function checkBackend() {
+  try {
+    await ping()
+    offline.value = false
+  } catch (e) {
+    offline.value = true
+  }
 }
+
+async function onLogout() {
+  await store.logout()
+  ctx.clear()
+  router.push({ name: 'login' })
+}
+
+onMounted(() => {
+  ctx.restore()
+  checkBackend()
+})
 </script>

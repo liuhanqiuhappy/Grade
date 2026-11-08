@@ -1,53 +1,22 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useIdentityStore } from '@/store/useIdentity'
-import { getMe } from '@/api/identity'
+import { useIdentityStore } from '../store/identity'
 
 const routes = [
+  { path: '/login', name: 'login', component: () => import('../views/Login.vue') },
   {
     path: '/',
-    redirect: '/login'
-  },
-  {
-    path: '/login',
-    name: 'login',
-    component: () => import('@/views/Login.vue')
-  },
-  {
-    path: '/welcome',
-    name: 'welcome',
-    component: () => import('@/views/Welcome.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    // 带导航壳的应用布局：仅教师可进入（模块二班级/学生管理）
-    path: '/app',
-    component: () => import('@/views/AppShell.vue'),
-    meta: { requiresAuth: true, requiresTeacher: true },
+    component: () => import('../views/AppShell.vue'),
     children: [
-      // ===== 模块二：班级与学生 =====
-      {
-        path: 'classes',
-        name: 'class-list',
-        component: () => import('@/views/class/ClassList.vue')
-      },
-      {
-        path: 'classes/:classId/students',
-        name: 'class-students',
-        component: () => import('@/views/class/ClassStudents.vue')
-      },
-      {
-        path: 'students',
-        name: 'student-search',
-        component: () => import('@/views/student/StudentSearch.vue')
-      },
-      {
-        path: 'students/:studentId',
-        name: 'student-detail',
-        component: () => import('@/views/student/StudentDetail.vue')
-      }
-      // ===== 后续模块在此追加 =====
+      { path: '', name: 'home', component: () => import('../views/Home.vue') },
+      { path: 'courses', name: 'courses', component: () => import('../views/course/CourseList.vue'), meta: { role: 'TEACHER' } },
+      { path: 'catalog', name: 'catalog', component: () => import('../views/catalog/SharedCatalog.vue'), meta: { role: 'TEACHER' } },
+      { path: 'courses/:id/members', name: 'course-members', component: () => import('../views/course/CourseMembers.vue'), meta: { role: 'TEACHER' } },
+      { path: 'courses/:id/scores', name: 'score-entry', component: () => import('../views/course/ScoreEntry.vue'), meta: { role: 'TEACHER' } },
+      { path: 'courses/:id/confirm', name: 'confirm-stats', component: () => import('../views/course/ConfirmStats.vue'), meta: { role: 'TEACHER' } },
+      { path: 'my-scores', name: 'my-scores', component: () => import('../views/student/MyScores.vue'), meta: { role: 'STUDENT' } }
     ]
-  }
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
@@ -55,26 +24,24 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach(async (to, from, next) => {
-  const identityStore = useIdentityStore()
-
-  if (to.meta.requiresAuth) {
-    try {
-      const res = await getMe()
-      identityStore.setUser(res.data)
-
-      // 教师专用页面：学生身份一律挡回欢迎页（菜单已隐藏，这里做兜底）
-      if (to.meta.requiresTeacher && identityStore.role !== 'TEACHER') {
-        return next('/welcome')
-      }
-      return next()
-    } catch (err) {
-      // 未登录/会话过期：统一回登录页，由守卫处理，页面不各自写跳转
-      identityStore.clearUser()
-      return next('/login')
-    }
+router.beforeEach(async (to) => {
+  const store = useIdentityStore()
+  if (!store.loaded) {
+    await store.restore()
   }
-  return next()
+  if (to.name === 'login') {
+    return store.isLoggedIn ? { name: 'home' } : true
+  }
+  if (!store.isLoggedIn) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.role && store.role !== to.meta.role) {
+    return { name: 'home' }
+  }
+  if (to.name === 'home') {
+    return store.isTeacher ? { name: 'courses' } : { name: 'my-scores' }
+  }
+  return true
 })
 
 export default router

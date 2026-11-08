@@ -1,8 +1,9 @@
 package com.example.grademanager.common;
 
-/**
- * 业务异常：由全局异常处理器统一转成 HTTP 200 + 业务 code。
- */
+import lombok.Getter;
+
+/** 业务异常：携带错误码，由全局异常处理器统一包装为 HTTP 200 响应。 */
+@Getter
 public class BusinessException extends RuntimeException {
 
     private final int code;
@@ -15,9 +16,5 @@ public class BusinessException extends RuntimeException {
     public BusinessException(ErrorCode errorCode, String message) {
         super(message);
         this.code = errorCode.getCode();
-    }
-
-    public int getCode() {
-        return code;
     }
 }
