@@ -343,10 +343,16 @@ async function addPicked() {
   try {
     const data = await addMembers(courseId, picked.value)
     const skipped = data.skipped || 0
+    // 跳过有两种原因：已在课程中、或目标班级分组已确认发布（成绩只读，不能再加人）
+    const locked = data.skippedConfirmed || 0
+    const reasons = []
+    if (skipped - locked > 0) reasons.push(`${skipped - locked} 名已在课程中`)
+    if (locked > 0) reasons.push(`${locked} 名所在班级分组成绩已确认发布，不能加入`)
+    const detail = reasons.join('；')
     if (data.added === 0 && skipped > 0) {
-      toast.success('没有新增成员', `${skipped} 名学生已在课程中，已跳过`)
+      toast.success('没有新增成员', detail)
     } else if (skipped > 0) {
-      toast.success(`已加入 ${data.added} 名学生`, `另有 ${skipped} 名已在课程中，已跳过`)
+      toast.success(`已加入 ${data.added} 名学生`, detail)
     } else {
       toast.success(`已加入 ${data.added} 名学生`)
     }
