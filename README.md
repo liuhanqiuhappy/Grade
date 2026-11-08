@@ -30,9 +30,19 @@ npm install
 npm run dev                  # http://localhost:5173，/api 经 Vite 代理到 8080
 ```
 
-- 演示账号：`teacher01 / pass1234`（教师），`student01 / pass1234`（学生）
+- 演示账号：`teacher01 / pass1234`（教师），`2023010101 / pass1234`（学生）
 - 演示数据开关：`app.demo-data.enabled=true`（默认开，置 false 可关闭）
 - 后端测试（不依赖 MySQL）：`mvn test`
+
+## 测试
+
+| 层次 | 命令 | 说明 |
+| --- | --- | --- |
+| 单元测试 | `cd backend && mvn test` | 76 个用例，纯 Mockito，不连数据库 |
+| 接口端到端 | `python _test/e2e_test.py` | 真实 HTTP + Session，102 条断言，覆盖身份/班级/学生/导入/课程/成员/成绩/确认/统计/通知/学生查分/删除保护；每次用时间戳造数，可反复执行 |
+| 页面冒烟 | `node _test/ui_smoke.mjs` | Playwright 驱动本机 Edge，登录后逐页截图到 `_test/ui_shots/`，断言控制台无报错 |
+
+> 端到端与页面冒烟都要求后端 8080、前端 5173 已启动；`ui_smoke.mjs` 依赖 `playwright-core` 与已安装的 Edge。
 
 ## 约定
 

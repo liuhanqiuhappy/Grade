@@ -30,6 +30,10 @@
 | 4001 | 参数缺失或非法 |
 | 5000 | 系统繁忙 |
 
+> 越权口径：教师访问**非本人**课程统一返回 `3001`（按不存在处理），不返回 `1003`，以避免泄露他人课程 ID 是否存在。
+> 学生访问教师接口、教师访问学生自助接口（`/api/my/*`）返回 `1003`。
+> 上传类请求缺少 `file` 字段（或请求不是 form-data）返回 `4001`，不走 5000 兜底。
+
 ## 身份模块
 
 | 方法 | 路径 | 说明 |
@@ -52,11 +56,13 @@
 | POST | `/api/classes/{classId}/students` | 新增学生 `{studentNo, name, gender}`，班级取自路径（请求体不必带 classId，带了也以路径为准） |
 | POST | `/api/classes/{classId}/students/import` | Excel(.xlsx) 批量导入，form-data 字段 `file`；返回 `{successCount, failures:[{row, reason}]}` |
 | GET | `/api/students?classId&page&size&keyword` | 全库学生搜索 |
-| PUT | `/api/students/{id}` | 修改学生（含换班，`classId` 必填；缺省返回 4001） |
+| PUT | `/api/students/{id}` | 修改学生（含换班，`classId` 必填；缺省返回 4001）。**学号或姓名变更会同步登录账号**（`sys_user.username` / `display_name`），保证「账号 = 学号」不被破坏；新学号被其他登录账号占用时返回 2005，学生档案与账号同时回滚 |
 | DELETE | `/api/students/{id}` | 删除学生 |
 | POST | `/api/students/{id}/password/reset` | 教师重置单个学生口令：服务端生成一次性临时口令，返回 `{studentId, studentNo, studentName, temporaryPassword}`；库中只存哈希并置 `must_change_password = 1`。临时口令**仅此一次**返回，不落库、不打日志、不可二次查询；重置不主动踢下线，下次登录生效 |
 
 Excel 模板：第 1 列学号、第 2 列姓名、第 3 列性别；首行表头自动跳过；逐行校验并汇报失败行，合法行正常入库。
+只要读到过数据行就返回 `{successCount, failures}`（即使全部行都非法，也逐行给出原因）；仅当整表为空/只有表头才返回 2006。
+导入请求缺少 `file` 字段按 4001 处理（不是 5000）。
 
 ## 课程与成员模块（仅教师）
 
@@ -64,10 +70,10 @@ Excel 模板：第 1 列学号、第 2 列姓名、第 3 列性别；首行表�
 | --- | --- | --- |
 | GET | `/api/courses?keyword` | 课程列表（含教师名/成员数/状态） |
 | POST | `/api/courses` | 新建课程 `{name, term}`（同名同学期唯一，初始 DRAFT） |
-| PUT | `/api/courses/{id}` | 修改课程（CONFIRMED 后拒绝） |
-| DELETE | `/api/courses/{id}` | 删除课程（CONFIRMED 后拒绝） |
+| PUT | `/api/courses/{id}` | 修改课程。**课程整体已确认，或已有任一分组确认发布**时拒绝（3003）——半确认状态属于「已有对外公布的成绩」，改名会让对外口径漂移 |
+| DELETE | `/api/courses/{id}` | 删除课程。**课程整体已确认，或已有任一分组确认发布**时拒绝（3003），避免已公布成绩被物理删除且不可恢复 |
 | GET | `/api/courses/{courseId}/members` | 成员列表（className/classId 为**加入课程时的班级快照**，BR05；含 `groupConfirmed` 标记） |
-| POST | `/api/courses/{courseId}/members` | 批量加入 `{studentIds:[]}`，加入时快照学生当前班级；课程已确认后拒绝。返回 `{added, skipped}`：`skipped` 为已在课程中而被跳过的人数（不中断整批，3004 不再用于批量场景） |
+| POST | `/api/courses/{courseId}/members` | 批量加入 `{studentIds:[]}`，加入时快照学生当前班级；课程已确认后拒绝。返回 `{added, skipped, skippedConfirmed}`：`skipped` 为被跳过的人数（已在课程中，或目标班级分组已确认发布），`skippedConfirmed` 为其中因「分组已确认发布」被跳过的人数（M3）。跳过不中断整批，3004 不再用于批量场景。**已确认发布的分组不再接受新成员**：否则新行 `groupConfirmed=false` 会把整组状态从「已公布」回退成「草稿」 |
 | DELETE | `/api/courses/{courseId}/members/{studentId}` | 移出成员（所在分组已确认发布时拒绝；同时清理其暂存成绩） |
 
 ## 成绩模块（确认粒度 = 课程 + 班级分组）
@@ -75,11 +81,11 @@ Excel 模板：第 1 列学号、第 2 列姓名、第 3 列性别；首行表�
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/courses/{courseId}/scores` | 成绩表（教师；含未录入行，score 为 null；className 为加入时班级快照）。每行含 `version`（成绩行当前版本号，未录入为 null，保存时按行回传）与 `groupConfirmed`（该行所属分组是否已确认发布；已确认行前端锁定只读） |
-| PUT | `/api/courses/{courseId}/scores` | 批量保存 `{entries:[{studentId, score, expectedVersion}]}`；score 可空、0~100。**已确认分组的成员行跳过而非中断**：返回 `{saved, skipped, skippedStudents[]}`，`saved` 为实际保存行数，`skipped` 为因分组已确认而跳过的行数，`skippedStudents` 为被跳过学生的「姓名（学号）」列表；同批其他行正常保存（3003 不再用于批量保存，仅用于单点写操作）。`expectedVersion` 为该行读取时的 `version`，**新录入行传 null**（新插入行版本即 0，0 为合法版本值）；与库中不一致即判定并发冲突，返回 3010 并在 message 中指出具体学生 |
+| PUT | `/api/courses/{courseId}/scores` | 批量保存 `{entries:[{studentId, score, expectedVersion}]}`；score 可空、0~100。**已确认分组的成员行跳过而非中断**：返回 `{saved, skipped, skippedStudents[]}`，`saved` 为实际保存行数，`skipped` 为因分组已确认而跳过的行数，`skippedStudents` 为被跳过学生的「姓名（学号）」列表；同批其他行正常保存（3003 不再用于批量保存，仅用于单点写操作）。`expectedVersion` 为该行读取时的 `version`，**新录入行传 null**（新插入行版本即 0，0 为合法版本值）；与库中不一致即判定并发冲突，返回 3010 并在 message 中指出具体学生。**该行在库中已存在时 `expectedVersion` 不允许为 null**：缺失一律按冲突处理（3010），否则「不传版本号」就等于绕过并发保护、可静默覆盖他人刚保存的分数。整门课程已确认后调用本接口不再整体返回 3003，而是 `saved=0, skipped=N`（全部行因分组已确认被跳过） |
 | POST | `/api/courses/{courseId}/scores/import` | Excel(.xlsx) 批量导入成绩，form-data 字段 `file`；返回 `{successCount, failures:[{row, reason}]}`。模板：第 1 列学号、第 2 列分数（0~100），首行表头自动跳过。逐行校验，**失败行只记录不中断整批**：学号不在本课程成员名单、分数非数字或越界、文件内学号重复、该行所属分组已确认发布，均记为该行失败；合法行按「课程 + 学号」新增或覆盖。课程整体已 CONFIRMED 时整体拒绝（3003）；空文件/非 .xlsx/无数据行按 2006 处理 |
 | POST | `/api/courses/{courseId}/scores/confirm` | 确认发布。body 可选 `{classId}`：按「课程+班级」分组确认，其他分组不受影响；缺省时确认全部分组。分组内缺一人即拒绝并指名（3008）；全部分组确认后课程转 CONFIRMED |
 | GET | `/api/courses/{courseId}/statistics` | 统计（总人数/未录入/不及格）；groups 按班级快照分组，每组含 `classId`（确认时回传用）、`className`、`confirmed`。`classId` 为加入课程时的班级快照 ID，同一课程内唯一 |
-| GET | `/api/my/scores` | 学生自助查分：仅「本人所在分组已确认」的课程返回分数，未确认统一「未公布」（score 恒 null） |
+| GET | `/api/my/scores` | 学生自助查分：仅「本人所在分组已确认」的课程返回分数，未确认统一「未公布」（score 恒 null）。**仅学生角色可调**，教师访问返回 1003 |
 
 > 学生登录账号：新建/导入学生时自动创建（用户名 = 学号，初始口令 `pass1234`，角色 STUDENT），并绑定 `student.user_id`；新账号一律置 `must_change_password = 1`，首次登录后除 `me` / `logout` / 修改口令外所有接口返回 1004，必须改密后才能继续。
 >
