@@ -12,6 +12,7 @@ replay_pid*
 node_modules/
 dist/
 dist-ssr/
+dist_verify/
 *.local
 .vite/
 
@@ -44,3 +45,10 @@ edge.out
 
 # ---- 临时文件 ----
 untitled
+
+# ---- 本地测试工作区（脚本、报告、截图、临时表格一律不入库）----
+_test/
+
+# ---- 个人本机启动脚本（含本机绝对路径，同学机器不可用）----
+一键启动.bat
+
