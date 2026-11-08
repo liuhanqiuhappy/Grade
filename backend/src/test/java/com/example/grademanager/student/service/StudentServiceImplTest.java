@@ -11,6 +11,7 @@ import com.example.grademanager.identity.entity.User;
 import com.example.grademanager.identity.mapper.UserMapper;
 import com.example.grademanager.score.entity.Score;
 import com.example.grademanager.score.mapper.ScoreMapper;
+import com.example.grademanager.student.dto.ResetPasswordResult;
 import com.example.grademanager.student.dto.StudentRequest;
 import com.example.grademanager.student.entity.Student;
 import com.example.grademanager.student.mapper.StudentMapper;
@@ -169,5 +170,58 @@ class StudentServiceImplTest {
         verify(userMapper, never()).insert(any(User.class));
         // 与教师账号撞名时不绑定，避免越权关联
         verify(studentMapper, never()).updateById(any(Student.class));
+    }
+
+    /* ============ 教师重置学生口令 ============ */
+
+    @Test
+    void newStudentAccountShouldRequirePasswordChangeOnFirstLogin() {
+        when(userMapper.findByUsername("2023010101")).thenReturn(null);
+        when(passwordEncoder.encode(any())).thenReturn("$2a$10$hash");
+        when(userMapper.insert(any(User.class))).thenReturn(1);
+
+        service.create(new StudentRequest("2023010101", "李同学", "男", 100L));
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userMapper).insert(captor.capture());
+        assertThat(captor.getValue().getMustChangePassword()).isTrue();
+    }
+
+    @Test
+    void resetPasswordShouldReturnTempPasswordAndForceChangeNextLogin() {
+        when(studentMapper.selectById(5L)).thenReturn(studentWith(5L, 9L));
+        User account = new User();
+        account.setId(9L);
+        account.setUsername("2023010101");
+        account.setRole(User.ROLE_STUDENT);
+        when(userMapper.selectById(9L)).thenReturn(account);
+        when(passwordEncoder.encode(any())).thenReturn("$2a$10$temp");
+
+        ResetPasswordResult result = service.resetPassword(5L, 1L);
+
+        assertThat(result.studentNo()).isEqualTo("2023010101");
+        assertThat(result.temporaryPassword()).hasSize(10);
+        assertThat(account.getPasswordHash()).isEqualTo("$2a$10$temp");
+        assertThat(account.getMustChangePassword()).isTrue();
+        assertThat(account.getPasswordResetBy()).isEqualTo(1L);
+        assertThat(account.getPasswordUpdatedAt()).isNotNull();
+        verify(userMapper).updateById(account);
+    }
+
+    @Test
+    void resetPasswordShouldRejectStudentWithoutBoundAccountWith4001() {
+        when(studentMapper.selectById(5L)).thenReturn(studentWith(5L, null));
+
+        assertThatThrownBy(() -> service.resetPassword(5L, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(4001));
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
+    void resetPasswordShouldRejectUnknownStudentWith2004() {
+        when(studentMapper.selectById(404L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.resetPassword(404L, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo(2004));
     }
 }

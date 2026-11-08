@@ -23,8 +23,12 @@ public class SessionUser implements Serializable {
     private String displayName;
     private String role;
 
+    /** true = 尚未完成强制改密，除 me / logout / 修改口令外一律拒绝（拦截器判定，不查库）。 */
+    private boolean mustChangePassword;
+
     public static SessionUser of(User user) {
-        return new SessionUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getRole());
+        return new SessionUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getRole(),
+                Boolean.TRUE.equals(user.getMustChangePassword()));
     }
 
     public static SessionUser require(HttpSession session) {
@@ -38,6 +42,15 @@ public class SessionUser implements Serializable {
     public static SessionUser requireTeacher(HttpSession session) {
         SessionUser user = require(session);
         if (!User.ROLE_TEACHER.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        return user;
+    }
+
+    /** 学生端接口专用：教师访问学生自助接口一律 1003，不靠「查不到数据返回空列表」兜底。 */
+    public static SessionUser requireStudent(HttpSession session) {
+        SessionUser user = require(session);
+        if (!User.ROLE_STUDENT.equals(user.getRole())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         return user;

@@ -13,6 +13,8 @@ import com.example.grademanager.course.mapper.CourseMemberMapper;
 import com.example.grademanager.course.service.impl.CourseMemberServiceImpl;
 import com.example.grademanager.course.service.impl.CourseServiceImpl;
 import com.example.grademanager.identity.mapper.UserMapper;
+import com.example.grademanager.notice.mapper.NoticeMapper;
+import com.example.grademanager.notice.mapper.NoticeRecipientMapper;
 import com.example.grademanager.score.entity.Score;
 import com.example.grademanager.score.mapper.ScoreMapper;
 import com.example.grademanager.student.entity.Student;
@@ -63,7 +65,8 @@ class CourseMemberServiceImplTest {
         classMapper = Mockito.mock(SchoolClassMapper.class);
         scoreMapper = Mockito.mock(ScoreMapper.class);
         UserMapper userMapper = Mockito.mock(UserMapper.class);
-        CourseServiceImpl courseService = new CourseServiceImpl(courseMapper, memberMapper, userMapper, scoreMapper);
+        CourseServiceImpl courseService = new CourseServiceImpl(courseMapper, memberMapper, userMapper, scoreMapper,
+                Mockito.mock(NoticeMapper.class), Mockito.mock(NoticeRecipientMapper.class));
         service = new CourseMemberServiceImpl(courseService, memberMapper, studentMapper, classMapper, scoreMapper);
 
         course = new Course();

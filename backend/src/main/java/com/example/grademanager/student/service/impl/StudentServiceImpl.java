@@ -11,9 +11,11 @@ import com.example.grademanager.course.entity.CourseMember;
 import com.example.grademanager.course.mapper.CourseMemberMapper;
 import com.example.grademanager.identity.entity.User;
 import com.example.grademanager.identity.mapper.UserMapper;
+import com.example.grademanager.identity.service.PasswordGenerator;
 import com.example.grademanager.score.entity.Score;
 import com.example.grademanager.score.mapper.ScoreMapper;
 import com.example.grademanager.student.dto.ImportResult;
+import com.example.grademanager.student.dto.ResetPasswordResult;
 import com.example.grademanager.student.dto.StudentRequest;
 import com.example.grademanager.student.dto.StudentView;
 import com.example.grademanager.student.entity.Student;
@@ -30,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -224,6 +227,34 @@ public class StudentServiceImpl implements StudentService {
         return new ImportResult(toInsert.size(), failures);
     }
 
+    @Override
+    @Transactional
+    public ResetPasswordResult resetPassword(Long studentId, Long operatorUserId) {
+        Student student = studentMapper.selectById(studentId);
+        if (student == null) {
+            throw new BusinessException(ErrorCode.STUDENT_NOT_FOUND);
+        }
+        if (student.getUserId() == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAM,
+                    "该学生尚未绑定登录账号，无法重置口令：请先编辑一次学生资料以补建账号");
+        }
+        User user = userMapper.selectById(student.getUserId());
+        if (user == null || !User.ROLE_STUDENT.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.INVALID_PARAM, "该学生绑定的账号异常，无法重置口令");
+        }
+
+        String temporaryPassword = PasswordGenerator.temporaryPassword();
+        user.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        // 重置即视作「口令已泄露或已遗忘」，强制下次登录先改密；会话不主动踢，下次登录生效（决策 3）
+        user.setMustChangePassword(true);
+        user.setPasswordUpdatedAt(LocalDateTime.now());
+        user.setPasswordResetBy(operatorUserId);
+        userMapper.updateById(user);
+
+        return new ResetPasswordResult(student.getId(), student.getStudentNo(), student.getName(),
+                temporaryPassword);
+    }
+
     /**
      * 为学生建立/绑定登录账号（§4-2b）：用户名 = 学号，角色 STUDENT，初始口令 pass1234。
      * 学号与既有 STUDENT 账号同名时直接复用绑定；与教师等账号冲突时不绑定，避免越权关联。
@@ -242,6 +273,8 @@ public class StudentServiceImpl implements StudentService {
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_STUDENT_PASSWORD));
         user.setDisplayName(entity.getName());
         user.setRole(User.ROLE_STUDENT);
+        // 初始口令是全班共用的公开秘密，首次登录必须改掉，否则「只知道学号就能看别人成绩」
+        user.setMustChangePassword(true);
         userMapper.insert(user);
         entity.setUserId(user.getId());
         studentMapper.updateById(entity);

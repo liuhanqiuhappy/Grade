@@ -137,6 +137,7 @@
                 <td>{{ s.className }}</td>
                 <td style="text-align: right">
                   <div style="display: inline-flex; gap: 8px">
+                    <button class="icon-btn" title="重置登录口令" @click="askResetPassword(s)"><Icon name="lock" /></button>
                     <button class="icon-btn" title="修改资料 / 转班" @click="openStudentForm(s)"><Icon name="pencil" /></button>
                     <button class="icon-btn danger" title="删除学生" @click="askDeleteStudent(s)"><Icon name="trash" /></button>
                   </div>
@@ -245,7 +246,8 @@
             <Icon name="info" />
             <span>
               列顺序固定为 <b>A 列学号 · B 列姓名 · C 列性别</b>（性别可空）。<br />
-              学号已存在、文件内重复、必填为空的行会被跳过并逐行报告，其余行照常导入。
+              学号已存在、文件内重复、必填为空的行会被跳过并逐行报告，其余行照常导入。<br />
+              导入成功的学生自动开通登录账号（用户名 = 学号，初始口令 <code>pass1234</code>），首次登录须自行修改口令。
             </span>
           </div>
 
@@ -298,6 +300,44 @@
       </div>
     </div>
 
+    <!-- 重置学生口令：临时口令只展示这一次 -->
+    <div v-if="resetResult" class="mask" @click.self="resetResult = null">
+      <div class="modal" style="max-width: 460px">
+        <div class="modal-h">
+          <div class="m-ico" style="background: #fff7ed; color: #c2410c"><Icon name="lock" /></div>
+          <div>
+            <h3>临时口令已生成</h3>
+            <div class="m-sub">{{ resetResult.studentName }}（{{ resetResult.studentNo }}）</div>
+          </div>
+        </div>
+        <div class="modal-b">
+          <div class="banner b-amber">
+            <Icon name="alert" />
+            <span>
+              该口令<b>只显示这一次</b>，关闭后无法再次查看。学生用「学号 + 临时口令」登录后，
+              系统会要求先设置新口令才能查看成绩。
+            </span>
+          </div>
+          <div class="mt-12">
+            <label class="label">临时口令</label>
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px">
+              <code class="mono" style="font-size: 16px; font-weight: 600; letter-spacing: 1px">
+                {{ resetResult.temporaryPassword }}
+              </code>
+              <button class="btn btn-o btn-sm" style="margin-left: auto" type="button" @click="copyTempPassword">
+                复制
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-f">
+          <div class="r">
+            <button class="btn btn-p" @click="resetResult = null">我已记录，关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 删除确认 -->
     <div v-if="deleting" class="mask" @click.self="deleting = null">
       <div class="modal" style="max-width: 420px">
@@ -329,6 +369,7 @@ import {
   deleteStudent,
   importStudents,
   listStudentsOfClass,
+  resetStudentPassword,
   searchStudents,
   updateStudent
 } from '../../api/student'
@@ -360,6 +401,7 @@ const classFormError = ref('')
 const studentForm = ref(null)
 const studentFormError = reactive({ studentNo: '', name: '', general: '' })
 const deleting = ref(null)
+const resetResult = ref(null)
 
 const importOpen = ref(false)
 const importFile = ref(null)
@@ -545,6 +587,30 @@ async function doDelete() {
   } catch (e) {
     toast.error('删除失败', e.message)
     deleting.value = null
+  }
+}
+
+/* ===== 重置学生登录口令 ===== */
+async function askResetPassword(s) {
+  if (!window.confirm(`确认重置「${s.name}（${s.studentNo}）」的登录口令？\n重置后原口令立即失效，学生需用临时口令登录并立即修改。`)) {
+    return
+  }
+  try {
+    resetResult.value = await resetStudentPassword(s.id)
+  } catch (e) {
+    toast.error('重置口令失败', e.message)
+  }
+}
+
+async function copyTempPassword() {
+  const text = resetResult.value?.temporaryPassword
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('已复制到剪贴板')
+  } catch (e) {
+    // 非安全上下文或浏览器拒绝剪贴板权限时，让教师手动抄写
+    toast.error('复制失败', '请手动选中口令抄写')
   }
 }
 

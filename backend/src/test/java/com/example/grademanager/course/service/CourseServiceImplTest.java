@@ -11,6 +11,10 @@ import com.example.grademanager.course.mapper.CourseMapper;
 import com.example.grademanager.course.mapper.CourseMemberMapper;
 import com.example.grademanager.course.service.impl.CourseServiceImpl;
 import com.example.grademanager.identity.mapper.UserMapper;
+import com.example.grademanager.notice.entity.Notice;
+import com.example.grademanager.notice.entity.NoticeRecipient;
+import com.example.grademanager.notice.mapper.NoticeMapper;
+import com.example.grademanager.notice.mapper.NoticeRecipientMapper;
 import com.example.grademanager.score.entity.Score;
 import com.example.grademanager.score.mapper.ScoreMapper;
 import com.example.grademanager.student.entity.Student;
@@ -41,6 +45,8 @@ class CourseServiceImplTest {
     private CourseMemberMapper memberMapper;
     private ScoreMapper scoreMapper;
     private UserMapper userMapper;
+    private NoticeMapper noticeMapper;
+    private NoticeRecipientMapper noticeRecipientMapper;
     private CourseServiceImpl service;
 
     private Course course;
@@ -52,6 +58,8 @@ class CourseServiceImplTest {
         TableInfoHelper.initTableInfo(assistant, CourseMember.class);
         TableInfoHelper.initTableInfo(assistant, Score.class);
         TableInfoHelper.initTableInfo(assistant, Student.class);
+        TableInfoHelper.initTableInfo(assistant, Notice.class);
+        TableInfoHelper.initTableInfo(assistant, NoticeRecipient.class);
     }
 
     @BeforeEach
@@ -60,8 +68,12 @@ class CourseServiceImplTest {
         memberMapper = Mockito.mock(CourseMemberMapper.class);
         scoreMapper = Mockito.mock(ScoreMapper.class);
         userMapper = Mockito.mock(UserMapper.class);
-        service = new CourseServiceImpl(courseMapper, memberMapper, userMapper, scoreMapper);
+        noticeMapper = Mockito.mock(NoticeMapper.class);
+        noticeRecipientMapper = Mockito.mock(NoticeRecipientMapper.class);
+        service = new CourseServiceImpl(courseMapper, memberMapper, userMapper, scoreMapper,
+                noticeMapper, noticeRecipientMapper);
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of());
+        when(noticeMapper.selectList(any())).thenReturn(List.of());
 
         course = new Course();
         course.setId(10L);

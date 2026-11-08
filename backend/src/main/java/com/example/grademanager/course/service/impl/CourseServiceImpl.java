@@ -12,6 +12,10 @@ import com.example.grademanager.course.mapper.CourseMemberMapper;
 import com.example.grademanager.course.service.CourseService;
 import com.example.grademanager.identity.entity.User;
 import com.example.grademanager.identity.mapper.UserMapper;
+import com.example.grademanager.notice.entity.Notice;
+import com.example.grademanager.notice.entity.NoticeRecipient;
+import com.example.grademanager.notice.mapper.NoticeMapper;
+import com.example.grademanager.notice.mapper.NoticeRecipientMapper;
 import com.example.grademanager.score.entity.Score;
 import com.example.grademanager.score.mapper.ScoreMapper;
 import org.springframework.stereotype.Service;
@@ -29,13 +33,18 @@ public class CourseServiceImpl implements CourseService {
     private final CourseMemberMapper memberMapper;
     private final UserMapper userMapper;
     private final ScoreMapper scoreMapper;
+    private final NoticeMapper noticeMapper;
+    private final NoticeRecipientMapper noticeRecipientMapper;
 
     public CourseServiceImpl(CourseMapper courseMapper, CourseMemberMapper memberMapper,
-                             UserMapper userMapper, ScoreMapper scoreMapper) {
+                             UserMapper userMapper, ScoreMapper scoreMapper,
+                             NoticeMapper noticeMapper, NoticeRecipientMapper noticeRecipientMapper) {
         this.courseMapper = courseMapper;
         this.memberMapper = memberMapper;
         this.userMapper = userMapper;
         this.scoreMapper = scoreMapper;
+        this.noticeMapper = noticeMapper;
+        this.noticeRecipientMapper = noticeRecipientMapper;
     }
 
     @Override
@@ -84,8 +93,17 @@ public class CourseServiceImpl implements CourseService {
         if (Course.STATUS_CONFIRMED.equals(course.getStatus())) {
             throw new BusinessException(ErrorCode.COURSE_CONFIRMED);
         }
-        // 删除顺序必须自底向上：score / course_member 都有指向 course 的外键且未设级联，
-        // 先删子表再删主表，否则残留成绩行会让 deleteById 撞外键、以 5000 收场。
+        // 删除顺序必须自底向上：score / course_member / notice 都有指向 course 的外键且未设级联，
+        // 先删子表再删主表，否则残留行会让 deleteById 撞外键、以 5000 收场。
+        // 注意「分组已确认但课程仍是 DRAFT」的课程允许删除，此时可能已有通知，必须一并清理。
+        List<Long> noticeIds = noticeMapper.selectList(new LambdaQueryWrapper<Notice>()
+                        .eq(Notice::getCourseId, id))
+                .stream().map(Notice::getId).toList();
+        if (!noticeIds.isEmpty()) {
+            noticeRecipientMapper.delete(new LambdaQueryWrapper<NoticeRecipient>()
+                    .in(NoticeRecipient::getNoticeId, noticeIds));
+            noticeMapper.delete(new LambdaQueryWrapper<Notice>().eq(Notice::getCourseId, id));
+        }
         scoreMapper.delete(new LambdaQueryWrapper<Score>().eq(Score::getCourseId, id));
         memberMapper.delete(new LambdaQueryWrapper<CourseMember>().eq(CourseMember::getCourseId, id));
         courseMapper.deleteById(id);

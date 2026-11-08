@@ -6,6 +6,7 @@ import com.example.grademanager.common.ErrorCode;
 import com.example.grademanager.common.PageResult;
 import com.example.grademanager.identity.session.SessionUser;
 import com.example.grademanager.student.dto.ImportResult;
+import com.example.grademanager.student.dto.ResetPasswordResult;
 import com.example.grademanager.student.dto.StudentRequest;
 import com.example.grademanager.student.dto.StudentView;
 import com.example.grademanager.student.service.StudentService;
@@ -89,5 +90,12 @@ public class StudentController {
         SessionUser.requireTeacher(session);
         studentService.delete(id);
         return ApiResponse.ok();
+    }
+
+    /** 教师重置单个学生口令：临时口令只在本次响应里出现一次。 */
+    @PostMapping("/students/{id}/password/reset")
+    public ApiResponse<ResetPasswordResult> resetPassword(@PathVariable Long id, HttpSession session) {
+        SessionUser teacher = SessionUser.requireTeacher(session);
+        return ApiResponse.ok(studentService.resetPassword(id, teacher.getUserId()));
     }
 }

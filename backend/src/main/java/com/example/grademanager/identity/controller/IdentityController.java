@@ -1,6 +1,7 @@
 package com.example.grademanager.identity.controller;
 
 import com.example.grademanager.common.ApiResponse;
+import com.example.grademanager.identity.dto.ChangePasswordRequest;
 import com.example.grademanager.identity.dto.LoginRequest;
 import com.example.grademanager.identity.dto.UserView;
 import com.example.grademanager.identity.service.IdentityService;
@@ -35,6 +36,14 @@ public class IdentityController {
     @PostMapping("/logout")
     public ApiResponse<Void> logout(HttpSession session) {
         identityService.logout(session);
+        return ApiResponse.ok();
+    }
+
+    /** 自助修改口令：仅需登录，改的是会话里的本人账号。 */
+    @PostMapping("/password")
+    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                                            HttpSession session) {
+        identityService.changePassword(request, session);
         return ApiResponse.ok();
     }
 }

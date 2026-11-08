@@ -11,3 +11,5 @@ export const importStudents = (classId, formData) =>
 export const searchStudents = (params) => request.get('/students', { params })
 export const updateStudent = (id, data) => request.put(`/students/${id}`, data)
 export const deleteStudent = (id) => request.delete(`/students/${id}`)
+// 教师重置学生口令：返回的一次性临时口令只此一次，页面不得持久化
+export const resetStudentPassword = (id) => request.post(`/students/${id}/password/reset`)

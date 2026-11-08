@@ -4,13 +4,14 @@ import lombok.Getter;
 
 /**
  * 业务错误码分段：
- * 1001-1003 身份权限；2001-2006 班级与学生；3001-3006 课程/成员/成绩；4001 参数错误；5000 系统错误。
+ * 1001-1003 身份权限；2001-2007 班级与学生；3001-3011 课程/成员/成绩/通知；4001 参数错误；5000 系统错误。
  */
 @Getter
 public enum ErrorCode {
     BAD_CREDENTIALS(1001, "用户名或密码错误"),
     NOT_LOGIN(1002, "未登录或会话已过期"),
     FORBIDDEN(1003, "无权执行该操作"),
+    PASSWORD_CHANGE_REQUIRED(1004, "请先修改初始口令后再继续操作"),
 
     CLASS_NOT_FOUND(2001, "班级不存在"),
     CLASS_NAME_DUP(2002, "班级名称已存在"),
@@ -30,6 +31,7 @@ public enum ErrorCode {
     SCORE_INCOMPLETE(3008, "存在未录入成绩的学生，无法确认发布"),
     STATISTICS_UNAVAILABLE(3009, "统计暂不可用"),
     SCORE_CONFLICT(3010, "成绩已被他人修改，请刷新后重试"),
+    NOTICE_NOT_FOUND(3011, "通知不存在或已撤回"),
 
     INVALID_PARAM(4001, "参数缺失或非法"),
     SYS_ERROR(5000, "系统繁忙，请稍后重试");

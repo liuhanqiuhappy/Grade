@@ -8,6 +8,7 @@ export const useIdentityStore = defineStore('identity', {
     username: '',
     displayName: '',
     role: '',
+    mustChangePassword: false,
     loaded: false
   }),
   getters: {
@@ -40,6 +41,7 @@ export const useIdentityStore = defineStore('identity', {
       this.username = user.username
       this.displayName = user.displayName
       this.role = user.role
+      this.mustChangePassword = !!user.mustChangePassword
       this.loaded = true
     },
     reset() {
@@ -47,6 +49,7 @@ export const useIdentityStore = defineStore('identity', {
       this.username = ''
       this.displayName = ''
       this.role = ''
+      this.mustChangePassword = false
       this.loaded = true
     }
   }

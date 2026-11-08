@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.example.grademanager.common.BusinessException;
 import com.example.grademanager.common.ErrorCode;
+import com.example.grademanager.common.ScoreRules;
 import com.example.grademanager.course.entity.Course;
 import com.example.grademanager.course.entity.CourseMember;
 import com.example.grademanager.course.mapper.CourseMapper;
@@ -268,9 +269,9 @@ public class ScoreServiceImpl implements ScoreService {
         return member == null ? null : member.getClassId();
     }
 
-    /** 不及格只统计已录入的成绩；0 分计入不及格，空值不计入（需求 §6-6b）。 */
+    /** 不及格只统计已录入的成绩；0 分计入不及格，空值不计入（需求 §6-6b）。口径统一放在 ScoreRules。 */
     private boolean isFailed(BigDecimal score) {
-        return score != null && score.compareTo(new BigDecimal("60")) < 0;
+        return ScoreRules.isFailed(score);
     }
 
     @Override

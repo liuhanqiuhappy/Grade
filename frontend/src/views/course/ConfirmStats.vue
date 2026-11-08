@@ -5,7 +5,22 @@
         <h2>确认与统计</h2>
         <p class="sub">确认以「课程 + 班级」分组为单位：分组内缺一人即拒绝并指名；已确认分组只读，其他分组不受影响。</p>
       </div>
-      <div>
+      <div class="row-flex">
+        <router-link
+          v-if="hasConfirmedGroup"
+          class="btn btn-o"
+          :to="{ name: 'makeup-notice', params: { id: courseId } }"
+        >
+          <Icon name="bell" /> 挂科名单与补考通知
+        </router-link>
+        <button
+          v-else
+          class="btn btn-o"
+          disabled
+          title="至少确认一个分组后，才能生成挂科名单"
+        >
+          <Icon name="bell" /> 挂科名单与补考通知
+        </button>
         <button class="btn btn-p" :disabled="readonly || loading || (stats && stats.total === 0)" @click="askConfirm(null)">
           <Icon name="check-circle" /> 全部分组确认
         </button>
@@ -151,6 +166,9 @@ const submitting = ref(false)
 
 const readonly = computed(() => stats.value?.status === 'CONFIRMED')
 const selectedGroup = ref(null)
+// 挂科名单只从已确认分组派生：一个都没确认时入口置灰，避免点进去误以为「没有挂科学生」
+const hasConfirmedGroup = computed(() =>
+  (stats.value?.groups || []).some((g) => g.confirmed))
 
 const confirmTarget = computed(() => {
   if (selectedGroup.value) return selectedGroup.value

@@ -222,6 +222,56 @@ tr:hover td { background: #f8fafc; }
 }
 .drawer .modal-f { border-radius: 0; }
 
+/* ===== 学生端消息下拉 ===== */
+.msg-wrap { position: relative; }
+.msg-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid #e2e8f0; background: #fff; color: #475569; cursor: pointer;
+}
+.msg-btn:hover { background: #f8fafc; color: #334155; }
+.msg-btn svg { width: 18px; height: 18px; }
+/* 未读红点：数字上限 99+，与后端 unreadCount 同源，失败时不清零 */
+.msg-dot {
+  position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px;
+  padding: 0 5px; border-radius: 999px; background: #e11d48; color: #fff;
+  font-size: 11px; line-height: 18px; text-align: center; border: 2px solid #fff;
+}
+.msg-panel {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 360px; max-width: 90vw;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.22); z-index: 40; overflow: hidden;
+}
+.msg-h {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px; border-bottom: 1px solid #f1f5f9;
+}
+.msg-h b { font-size: 14px; font-weight: 600; color: #0f172a; }
+.msg-link {
+  margin-left: auto; border: none; background: none; padding: 0;
+  color: #4f46e5; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.msg-link:hover { text-decoration: underline; }
+.msg-list { list-style: none; max-height: 380px; overflow-y: auto; }
+.msg-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+.msg-item:hover { background: #f8fafc; }
+.msg-item.unread { background: #eef2ff; }
+.msg-item-top { display: flex; align-items: center; gap: 6px; }
+.msg-dot-mini { width: 6px; height: 6px; border-radius: 999px; background: #e11d48; flex-shrink: 0; }
+.msg-title { font-size: 13px; font-weight: 500; color: #0f172a; }
+.msg-meta { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+.msg-body {
+  margin-top: 8px; padding-left: 8px; border-left: 2px solid #c7d2fe;
+  font-size: 12px; color: #475569; line-height: 1.65;
+  white-space: pre-wrap; word-break: break-word;
+}
+.msg-kv { font-size: 12px; color: #334155; margin-top: 6px; }
+.msg-kv span { color: #94a3b8; margin-right: 6px; }
+.msg-state { padding: 28px 14px; text-align: center; font-size: 13px; color: #94a3b8; }
+.msg-state.err { color: #be123c; }
+.msg-state svg { width: 15px; height: 15px; vertical-align: -2px; margin-right: 4px; }
+.msg-f { padding: 8px 14px; background: #f8fafc; font-size: 11px; color: #94a3b8; text-align: center; }
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; top: 72px; right: 20px; z-index: 60;
